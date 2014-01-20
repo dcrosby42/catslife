@@ -15,112 +15,124 @@
   <a href="/phaser/examples/assets/sky.png">Sky</a>
 <script type="text/javascript">
 
-var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+var game = new Phaser.Game(800, 600, Phaser.CANVAS, '', { preload: preload, create: create, update: update });
 
 function preload() {
-  var assets = "assets";
-  game.load.image('sky', assets+'/sky.png');
-  game.load.image('ground', assets+'/platform.png');
-  game.load.image('star', assets+'/star.png');
-  game.load.spritesheet('dude', assets+'/dude.png', 32,48);
+
+    game.load.image('phaser', '/phaser/examples/assets/sprites/phaser-dude.png');
+    game.load.tilemap('desert', '/phaser/examples/assets/maps/burd.json', null, Phaser.Tilemap.TILED_JSON);
+    game.load.tileset('tiles', '/phaser/examples/assets/maps/ground_1x1.png', 32, 32);
+    game.load.spritesheet('trees', '/phaser/examples/assets/maps/walls_1x2.png', 32, 64);
+
+    //game.load.spritesheet('cat', '/phaser/examples/assets/maps/walls_1x2.png', 32, 64);
+
+    game.load.spritesheet('cat', 'assets/cat_frames.png', 150,150);
 }
 
-var player;
-var platforms;
-var cursors;
-var stars;
+var map;
+var tileset;
+var layer;
 
-var score;
-var scoreText;
+var sprite;
+var group;
+var oldY = 0;
+var cursors;
+
+var myText;
 
 function create() {
-  // Scene:
-  game.add.sprite(0,0, 'sky');
 
+    //  Create our tilemap to walk around
+    map = game.add.tilemap('desert');
+    tileset = game.add.tileset('tiles');
+    layer = game.add.tilemapLayer(0, 0, 800, 600, tileset, map, 0);
 
-  platforms = game.add.group();
-  var ground = platforms.create(0,game.world.height-64, 'ground');
-  ground.scale.setTo(2,2);
-  ground.body.immovable = true;
+    //  This group will hold the main player + all the tree sprites to depth sort against
+    group = game.add.group();
 
-  var ledge = platforms.create(400,400, 'ground');
-  ledge.body.immovable = true;
+    //  The player
+    // sprite = group.create(300, 200, 'phaser');
+    var fr=7;
+    sprite = group.create(300, 200, 'cat');
+    sprite.animations.add('stand_down', [0], fr, true);
+    sprite.animations.add('walk_down', [1,2], fr, true);
+    sprite.animations.add('stand_up', [3], fr, true);
+    sprite.animations.add('walk_up', [4,5], fr, true);
+    sprite.animations.add('stand_right', [6], fr, true);
+    sprite.animations.add('walk_right', [7,8], fr, true);
+    sprite.animations.add('stand_left', [9], fr, true);
+    sprite.animations.add('walk_left', [10,11], fr, true);
+    sprite.animations.play('stand_up');
+    sprite.scale.x = 0.5;
+    sprite.scale.y = 0.5;
 
-  ledge = platforms.create(-150,250,'ground');
-  ledge.body.immovable = true;
+    myText = game.add.text(16,16, 'uhhh', {font: '16px arial', fill: "#000" });
+    myText.visible = false;
 
-  // Player;
-  player = game.add.sprite(32, game.world.height-150, 'dude');
-  player.body.bounce.y = 0.2;
-  player.body.gravity.y = 6;
-  player.body.collideWorldBounds = true;
+    //  Some trees
+    for (var i = 0; i < 50; i++)
+    {
+        var x = game.math.snapTo(game.world.randomX, 32);
+        var y = game.math.snapTo(game.world.randomY, 32);
+        group.create(x, y, 'trees', game.rnd.integerInRange(0, 8));
+    }
 
-  player.animations.add('left', [0,1,2,3], 10, true);
-  player.animations.add('right', [5,6,7,8], 10, true);
-
-  player.alpha = 0;
-
-  game.add.tween(player).to( { alpha: 1 }, 2000, Phaser.Easing.Linear.None, true);
-  // game.add.tween(player).to( { alpha: 1 }, 2000, Phaser.Easing.Linear.None, true, 0, 1000, true);
-
-  // Stars
-  stars = game.add.group();
-  for (var i=0; i<12; i++)
-  {
-    var star = stars.create(i*70,0,'star');
-    star.body.gravity.y = 6;
-    star.body.bounce.y = 0.7 + Math.random() * 0.2;
-    star.alpha = 0;
-    game.add.tween(star).to( { alpha: 1 }, Math.random()*1000, Phaser.Easing.Linear.None, true, Math.random()*500);
-  }
-
-  // Score hud:
-  score = 0;
-  scoreText = game.add.text(16,16, 'Score: 0', {font: '32px arial', fill: "#000" });
-
-  // Control:
-  cursors = game.input.keyboard.createCursorKeys();
+    //  Move it
+    cursors = game.input.keyboard.createCursorKeys();
 
 }
 
+var dir = 'down';
 function update() {
-  game.physics.collide(player,platforms);
-  game.physics.collide(stars,platforms);
 
-  game.physics.overlap(player,stars,collectStar, null, this);
+    sprite.body.velocity.x = 0;
+    sprite.body.velocity.y = 0;
 
-  player.body.velocity.x = 0;
+    var move = 'idle';
+    if (cursors.up.isDown)
+    {
+        sprite.body.velocity.y = -200;
+        // sprite.animations.play('walk_up');
+        move = 'up';
+    }
+    else if (cursors.down.isDown)
+    {
+        sprite.body.velocity.y = 200;
+        move = 'down';
+    }
 
-  if (cursors.left.isDown)
-  {
-    player.body.velocity.x = -150;
-    player.animations.play('left');
-  }
-  else if (cursors.right.isDown) 
-  {
-    player.body.velocity.x = 150;
-    player.animations.play('right');
-  }
-  else
-  {
-    player.animations.stop();
-    player.frame = 4;
-  }
+    if (cursors.left.isDown)
+    {
+        sprite.body.velocity.x = -200;
+        move = 'left';
+    }
+    else if (cursors.right.isDown)
+    {
+        sprite.body.velocity.x = 200;
+        move = 'right';
+    }
 
-  if (cursors.up.isDown && player.body.touching.down)
-  {
-    player.body.velocity.y = -350;
-  }
+    if (move === 'idle') {
+      sprite.animations.play("stand_"+dir);
+
+    } else {
+      dir = move;
+      sprite.animations.play('walk_'+dir);
+    }
+
+    myText.content = "dir="+dir+", move="+move;
+
+    
+    if (sprite.y !== oldY)
+    {
+        //  Group.sort() is an expensive operation
+        //  You really want to minimise how often it is called as much as possible.
+        //  So this little check helps at least, but if you can do it even less than this.
+        group.sort();
+        oldY = sprite.y;
+    }
+
 }
-
-function collectStar(player,star)
-{
-  star.kill();
-
-  score = score + 10;
-  scoreText.content = 'Score: '+score;
-}
-
 </script>
 
 </body>
