@@ -4,9 +4,11 @@ var app = express();
 
 app.use(logfmt.requestLogger());
 
-app.get('/', function(req, res) {
-  res.send("A Cat's Life: Hello World, coming soon!");
-});
+app.use(express.static(__dirname + '/public'));
+
+// app.get('/', function(req, res) {
+//   res.send("A Cat's Life: Hello World, coming soon!");
+// });
 
 var port = process.env.PORT || 5000;
 app.listen(port, function() {
