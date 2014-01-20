@@ -1,0 +1,30 @@
+{
+  "name": "ACatsLife",
+  "version": "0.0.0",
+  "description": "A game by Dave and Arwen",
+  "main": "web.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:dcrosby42/catslife.git"
+  },
+  "keywords": [
+    "cats",
+    "fishing",
+    "adventure",
+    "html5",
+    "phaser"
+  ],
+  "author": "David Crosby",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dcrosby42/catslife/issues"
+  },
+  "homepage": "https://github.com/dcrosby42/catslife",
+  "dependencies": {
+    "logfmt": "~0.18.1",
+    "express": "~3.4.8"
+  }
+}
