@@ -3,12 +3,15 @@
 <head> 
 	<meta charset="UTF-8" />
 	<title>A Cat's Life</title>
-	<script type="text/javascript" src="phaser.min.js"></script>
-    <style type="text/css">
-        body {
-            margin: 0;
-        }
-    </style>
+  <style type="text/css">
+    body {
+      margin: 0;
+    }
+  </style>
+	<script type="text/javascript" src="js/jquery-1.10.2.min.js"></script>
+	<script type="text/javascript" src="js/phaser.min.js"></script>
+	<script type="text/javascript" src="js/gamecontroller.js"></script>
+	<script type="text/javascript" src="js/modernizr.custom.js"></script>
 </head>
 <body>
   <div id="game-div"></div>
@@ -61,7 +64,7 @@ function create() {
     sprite.scale.y = 0.5;
 
     myText = game.add.text(16,16, 'uhhh', {font: '16px arial', fill: "#000" });
-    myText.visible = false;
+    // myText.visible = false;
 
     //  Some trees
     for (var i = 0; i < 50; i++)
@@ -74,6 +77,42 @@ function create() {
     //  Move it
     cursors = game.input.keyboard.createCursorKeys();
 
+    if (Modernizr.touch) {
+      // Use Austin Hallock's HTML5 Virtual Game Controller
+      // https://github.com/austinhallock/html5-virtual-game-controller/
+      // Note: you must also require gamecontroller.js on your host page.
+
+      // Init game controller with left thumb stick
+      GameController.init({
+          left: {
+              type: 'joystick',
+              joystick: {
+                  touchStart: function() {
+                      // Don't need this, but the event is here if you want it.
+                  },
+                  touchMove: function(joystick_details) {
+                      game.input.joystickLeft = joystick_details;
+                  },
+                  touchEnd: function() {
+                      game.input.joystickLeft = null;
+                  }
+              }
+          },
+          right: {
+              // We're not using anything on the right for this demo, but you can add buttons, etc.
+              // See https://github.com/austinhallock/html5-virtual-game-controller/ for examples.
+              type: 'none'
+          }
+      });
+
+      // This is an ugly hack to get this to show up over the Phaser Canvas
+      // (which has a manually set z-index in the example code) and position it in the right place,
+      // because it's positioned relatively...
+      // You probably don't need to do this in your game unless your game's canvas is positioned in a manner
+      // similar to this example page, where the canvas isn't the whole screen.
+      $('canvas').last().css('z-index', 20);
+      $('canvas').last().offset( $('canvas').first().offset() );
+    }
 }
 
 var dir = 'down';
@@ -82,28 +121,46 @@ function update() {
     sprite.body.velocity.x = 0;
     sprite.body.velocity.y = 0;
 
-    var move = 'idle';
+    var vx = 0;
+    var vy = 0;
     if (cursors.up.isDown)
     {
-        sprite.body.velocity.y = -200;
-        // sprite.animations.play('walk_up');
-        move = 'up';
+      vy = -200;
     }
     else if (cursors.down.isDown)
     {
-        sprite.body.velocity.y = 200;
-        move = 'down';
+      vy = 200;
     }
 
     if (cursors.left.isDown)
     {
-        sprite.body.velocity.x = -200;
-        move = 'left';
+      vx = -200;
     }
     else if (cursors.right.isDown)
     {
-        sprite.body.velocity.x = 200;
-        move = 'right';
+      vx = 200;
+    }
+
+
+    if (game.input.joystickLeft) {
+      // Move the ufo using the joystick's normalizedX and Y values,
+      // which range from -1 to 1.
+      // ufo.body.velocity.setTo(game.input.joystickLeft.normalizedX * 200, game.input.joystickLeft.normalizedY * ufoSpeed * -1);
+      vx = game.input.joystickLeft.normalizedX * 200;
+      vy = game.input.joystickLeft.normalizedY * -200;
+
+      myText.content = "(" + vx + "," + vy + ")";
+    }
+
+    sprite.body.velocity.y = vy;
+    sprite.body.velocity.x = vx;
+
+    var move = 'idle';
+    if (vy < 0) { move = 'up'; }
+    if (vy > 0) { move = 'down'; }
+    if (Math.abs(vx) > Math.abs(vy)) {
+      if (vx > 0) { move = 'right'; }
+      if (vx < 0) { move = 'left'; }
     }
 
     if (move === 'idle') {
@@ -113,8 +170,6 @@ function update() {
       dir = move;
       sprite.animations.play('walk_'+dir);
     }
-
-    myText.content = "dir="+dir+", move="+move;
 
     
     if (sprite.y !== oldY)
