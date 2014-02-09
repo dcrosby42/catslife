@@ -1,11 +1,11 @@
 
 
-game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', { preload: preload, create: create, update: update });
+
+var game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', { preload: preload, create: create, update: update });
 
 function preload() {
-    game.load.tilemap('desert', 'assets/maps/desert.json', null, Phaser.Tilemap.TILED_JSON);
-    game.load.tileset('tiles', 'assets/maps/desert.png', 32, 32);
-
+    game.load.tilemap('desert', 'assets/maps/burd.json', null, Phaser.Tilemap.TILED_JSON);
+    game.load.tileset('tiles', 'assets/maps/ground_1x1.png', 32, 32);
     game.load.spritesheet('trees', 'assets/maps/walls_1x2.png', 32, 64);
     game.load.spritesheet('cat', 'assets/cat_frames.png', 150,150);
 }
@@ -26,7 +26,6 @@ function create() {
     //  Create our tilemap to walk around
     map = game.add.tilemap('desert');
     tileset = game.add.tileset('tiles');
-
     layer = game.add.tilemapLayer(0, 0, 800, 600, tileset, map, 0);
 
     //  This group will hold the main player + all the tree sprites to depth sort against
@@ -51,12 +50,12 @@ function create() {
     // myText.visible = false;
 
     //  Some trees
-    // for (var i = 0; i < 50; i++)
-    // {
-    //     var x = game.math.snapTo(game.world.randomX, 32);
-    //     var y = game.math.snapTo(game.world.randomY, 32);
-    //     group.create(x, y, 'trees', game.rnd.integerInRange(0, 8));
-    // }
+    for (var i = 0; i < 50; i++)
+    {
+        var x = game.math.snapTo(game.world.randomX, 32);
+        var y = game.math.snapTo(game.world.randomY, 32);
+        group.create(x, y, 'trees', game.rnd.integerInRange(0, 8));
+    }
 
     //  Move it
     cursors = game.input.keyboard.createCursorKeys();
@@ -166,3 +165,4 @@ function update() {
     }
 
 }
+
