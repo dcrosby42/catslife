@@ -8,9 +8,9 @@ module.exports = (grunt) ->
     coffee:
       client_dev:
         expand: true
-        cwd: "src"
+        cwd: "src/client"
         src: ["**/*.coffee"]
-        dest: "public/js"
+        dest: "public/js/client"
         ext: ".js"
         #flatten: true
         # options:
