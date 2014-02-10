@@ -1,5 +1,4 @@
-
-
+touchEnabled = -> Modernizr.touch
 
 preload = ->
   game.load.tilemap('desert', 'assets/maps/burd.json', null, Phaser.Tilemap.TILED_JSON)
@@ -7,137 +6,187 @@ preload = ->
   game.load.spritesheet('trees', 'assets/maps/walls_1x2.png', 32, 64)
   game.load.spritesheet('cat', 'assets/cat_frames.png', 150,150)
 
+spriteTable = {}
 
-map = null
-tileset = null
-layer = null
-
-sprite = null
 group = null
 oldY = 0
 cursors = null
 
 myText = null
 
-create = ->
-  #  Create our tilemap to walk around
+createPlayerSprite = (game,group) ->
+  #  The player:
+  fr = 7
+  playerSprite = group.create(0, 0, 'cat')
+  # playerSprite = game.add.sprite(0, 0, 'cat')
+  playerSprite.animations.add('stand_down', [0], fr, true)
+  playerSprite.animations.add('walk_down', [1,2], fr, true)
+  playerSprite.animations.add('stand_up', [3], fr, true)
+  playerSprite.animations.add('walk_up', [4,5], fr, true)
+  playerSprite.animations.add('stand_right', [6], fr, true)
+  playerSprite.animations.add('walk_right', [7,8], fr, true)
+  playerSprite.animations.add('stand_left', [9], fr, true)
+  playerSprite.animations.add('walk_left', [10,11], fr, true)
+  playerSprite.animations.play('stand_up')
+  playerSprite.scale.x = 0.5
+  playerSprite.scale.y = 0.5
+
+  # group.add(playerSprite)
+
+  playerSprite
+
+createGroundLayer = (game) ->
   map = game.add.tilemap('desert')
   tileset = game.add.tileset('tiles')
   layer = game.add.tilemapLayer(0, 0, 800, 600, tileset, map, 0)
 
-  #  This group will hold the main player + all the tree sprites to depth sort against
-  group = game.add.group()
+createTouchJoystick = (game) ->
+  # Use Austin Hallock's HTML5 Virtual Game Controller
+  # https://github.com/austinhallock/html5-virtual-game-controller/
+  # Note: you must also require gamecontroller.js on your host page.
 
-  #  The player:
-  fr = 7
-  sprite = group.create(300, 200, 'cat')
-  sprite.animations.add('stand_down', [0], fr, true)
-  sprite.animations.add('walk_down', [1,2], fr, true)
-  sprite.animations.add('stand_up', [3], fr, true)
-  sprite.animations.add('walk_up', [4,5], fr, true)
-  sprite.animations.add('stand_right', [6], fr, true)
-  sprite.animations.add('walk_right', [7,8], fr, true)
-  sprite.animations.add('stand_left', [9], fr, true)
-  sprite.animations.add('walk_left', [10,11], fr, true)
-  sprite.animations.play('stand_up')
-  sprite.scale.x = 0.5
-  sprite.scale.y = 0.5
+  # Init game controller with left thumb stick
+  GameController.init
+    left:
+      type: 'joystick'
+      joystick:
+        touchStart: (->)
+          # Don't need this, but the event is here if you want it.
+        touchMove: (joystick_details) ->
+          game.input.joystickLeft = joystick_details
+        
+        touchEnd: ->
+          game.input.joystickLeft = null
+      right:
+        # We're not using anything on the right for this demo, but you can add buttons, etc.
+        # See https://github.com/austinhallock/html5-virtual-game-controller/ for examples.
+        type: 'none'
 
-  myText = game.add.text(16,16, 'uhhh', {font: '16px arial', fill: "#000" })
-  # myText.visible = false
+  # This is an ugly hack to get this to show up over the Phaser Canvas
+  # (which has a manually set z-index in the example code) and position it in the right place,
+  # because it's positioned relatively...
+  # You probably don't need to do this in your game unless your game's canvas is positioned in a manner
+  # similar to this example page, where the canvas isn't the whole screen.
+  $('canvas').last().css('z-index', 20)
+  $('canvas').last().offset( $('canvas').first().offset() )
 
+createTreeSprites = (game, group) ->
   #  Some trees
   for i in [0...50]
     x = game.math.snapTo(game.world.randomX, 32)
     y = game.math.snapTo(game.world.randomY, 32)
     group.create(x, y, 'trees', game.rnd.integerInRange(0, 8))
 
-  #  Move it
+createHud = (game) ->
+  text = game.add.text(16,16, 'uhhh', {font: '16px arial', fill: "#000" })
+  text
+
+
+state = Ecs.create.state()
+
+create = ->
+
+  eid = "e1"
+  spriteKey = "player1"
+  for comp in [
+    Ecs.create.component 'locallyControlled', {}
+    Ecs.create.component 'physicsPosition', {}
+    Ecs.create.component 'moveControl', up: false, down: false, left: false, right: false
+    Ecs.create.component 'velocity', x: 0, y: 0
+    Ecs.create.component 'position', x: 0, y: 0
+    Ecs.create.component 'sprite',   key: spriteKey
+    Ecs.create.component 'action', action: "stand", direction: "down"
+    Ecs.create.component 'animation', name: "stand_down"
+
+  ]
+    Ecs.addComponent(state, eid, comp)
+
+  
+
+  createGroundLayer(game)
+
+  #  This group will hold the main player + all the tree sprites to depth sort against
+  group = game.add.group()
+
+  spriteTable[spriteKey] = createPlayerSprite(game, group)
+
+
+  createTreeSprites(game, group)
+
+  myText = createHud(game)
+
   cursors = game.input.keyboard.createCursorKeys()
 
-  if Modernizr.touch
-    # Use Austin Hallock's HTML5 Virtual Game Controller
-    # https://github.com/austinhallock/html5-virtual-game-controller/
-    # Note: you must also require gamecontroller.js on your host page.
+  if touchEnabled()
+    createTouchJoystick()
+   
 
-    # Init game controller with left thumb stick
-    GameController.init
-      left:
-        type: 'joystick'
-        joystick:
-          touchStart: (->)
-            # Don't need this, but the event is here if you want it.
-          touchMove: (joystick_details) ->
-            game.input.joystickLeft = joystick_details
-          
-          touchEnd: ->
-            game.input.joystickLeft = null
-        right:
-          # We're not using anything on the right for this demo, but you can add buttons, etc.
-          # See https://github.com/austinhallock/html5-virtual-game-controller/ for examples.
-          type: 'none'
-
-    # This is an ugly hack to get this to show up over the Phaser Canvas
-    # (which has a manually set z-index in the example code) and position it in the right place,
-    # because it's positioned relatively...
-    # You probably don't need to do this in your game unless your game's canvas is positioned in a manner
-    # similar to this example page, where the canvas isn't the whole screen.
-    $('canvas').last().css('z-index', 20)
-    $('canvas').last().offset( $('canvas').first().offset() )
-  
-
-dir = 'down'
 update = ->
-  sprite.body.velocity.x = 0
-  sprite.body.velocity.y = 0
 
-  vx = 0
-  vy = 0
-  if cursors.up.isDown
-    vy = -200
-  else if cursors.down.isDown
-    vy = 200
+  Ecs.for.components state, ['locallyControlled','moveControl'], (x, moveControl) ->
+    c = cursors # TODO... is this an "input" system?
+    moveControl.up = c.up.isDown
+    moveControl.down = c.down.isDown
+    moveControl.left = c.left.isDown
+    moveControl.right = c.right.isDown
+# 
+#     TODO!!!
+#     if game.input.joystickLeft
+#       # Move the ufo using the joystick's normalizedX and Y values,
+#       # which range from -1 to 1.
+#       vx = game.input.joystickLeft.normalizedX * 200
+#       vy = game.input.joystickLeft.normalizedY * -200
 
-  if cursors.left.isDown
-    vx = -200
-  else if cursors.right.isDown
-    vx = 200
+  Ecs.for.components state, ['moveControl','velocity'], (moveControl,velocity) ->
+    if moveControl.up
+      velocity.y = -200
+    else if moveControl.down
+      velocity.y = 200
+    else
+      velocity.y = 0
+
+    if moveControl.left
+      velocity.x = -200
+    else if moveControl.right
+      velocity.x = 200
+    else
+      velocity.x = 0
+
+  Ecs.for.components state, ['action', 'animation','velocity'], (action, animation, velocity) ->
+    move = 'idle'
+    if velocity.y < 0 then move = 'up'
+    if velocity.y > 0 then move = 'down'
+    if Math.abs(velocity.x) > Math.abs(velocity.y)
+      if velocity.x > 0 then move = 'right'
+      if velocity.x < 0 then move = 'left'
+    
+    if move == 'idle'
+      action.action = "stand"
+    else
+      action.action = "walk"
+      action.direction = move
+
+    animation.name = "#{action.action}_#{action.direction}"
 
 
-  if game.input.joystickLeft
-    # Move the ufo using the joystick's normalizedX and Y values,
-    # which range from -1 to 1.
-    # ufo.body.velocity.setTo(game.input.joystickLeft.normalizedX * 200, game.input.joystickLeft.normalizedY * ufoSpeed * -1)
-    vx = game.input.joystickLeft.normalizedX * 200
-    vy = game.input.joystickLeft.normalizedY * -200
+  Ecs.for.components state, ['sprite','velocity'], (sprite, velocity) ->
+    phaserSprite = spriteTable[sprite.key]  # TODO: This is an "output" system!
+    phaserSprite.body.velocity.x = velocity.x
+    phaserSprite.body.velocity.y = velocity.y
 
-    myText.content = "(" + vx + "," + vy + ")"
+  Ecs.for.components state, ['animation','sprite'], (animation, sprite) ->
+    phaserSprite = spriteTable[sprite.key]  # TODO: This is an "output" system!
+    phaserSprite.animations.play animation.name
 
-  sprite.body.velocity.y = vy
-  sprite.body.velocity.x = vx
-
-  move = 'idle'
-  if vy < 0
-    move = 'up'
-  if vy > 0
-    move = 'down'
-  if Math.abs(vx) > Math.abs(vy)
-    if vx > 0
-      move = 'right'
-    if vx < 0
-      move = 'left'
   
-  if move == 'idle'
-    sprite.animations.play("stand_"+dir)
-  else
-    dir = move
-    sprite.animations.play('walk_'+dir)
-  
-  if sprite.y != oldY
+# TODO: System?
+  playerSprite = spriteTable["player1"]
+  if playerSprite.y != oldY
     #  Group.sort() is an expensive operation
     #  You really want to minimise how often it is called as much as possible.
     #  So this little check helps at least, but if you can do it even less than this.
     group.sort()
-    oldY = sprite.y
+    oldY = playerSprite.y
+
 
 game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', { preload: preload, create: create, update: update })
