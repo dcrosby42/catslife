@@ -1,5 +1,5 @@
 (function() {
-  var connectionHandler, express, expressApp, httpServer, logfmt, port, socketIO, verbose;
+  var connectionHandler, express, expressApp, httpServer, logfmt, logger, port, socketIO, verbose;
 
   port = 4040;
 
@@ -15,7 +15,9 @@
 
   socketIO = require('socket.io').listen(httpServer);
 
-  expressApp.use(logfmt.requestLogger());
+  logger = logfmt.requestLogger();
+
+  expressApp.use(logger);
 
   expressApp.use(express["static"]("" + __dirname + "/../../public"));
 
@@ -23,6 +25,10 @@
 
   socketIO.sockets.on('connection', function(socket) {
     return connectionHandler.onConnect(socket);
+  });
+
+  logfmt.log({
+    port: port
   });
 
   httpServer.listen(port);

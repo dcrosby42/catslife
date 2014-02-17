@@ -1,10 +1,30 @@
 (function() {
-  window.Ecs = {};
+  var Ecs;
+
+  Ecs = {};
 
   Ecs.util = {};
 
   Ecs.util.merge = function(defaults, overrides) {
-    return $.extend({}, defaults, overrides);
+    var k, res, v;
+    res = {};
+    for (k in defaults) {
+      v = defaults[k];
+      res[k] = v;
+    }
+    for (k in overrides) {
+      v = overrides[k];
+      res[k] = v;
+    }
+    return res;
+  };
+
+  Ecs.util.isString = function(obj) {
+    return "string" === typeof obj;
+  };
+
+  Ecs.util.isComponent = function(obj) {
+    return Ecs.util.isString(obj.type);
   };
 
   Ecs.create = {};
@@ -29,6 +49,32 @@
     (_base = state.comps)[_name = comp.type] || (_base[_name] = {});
     state.comps[comp.type][eid] = storedComp;
     return state;
+  };
+
+  Ecs.removeComponent = function(state, eid, comp) {
+    var compType, comps;
+    if (Ecs.util.isString(comp)) {
+      compType = comp;
+      if (comps = state.comps[compType]) {
+        return delete comps[compType];
+      }
+    } else if (Ecs.util.isComponent(comp)) {
+      return Ecs.removeComponent(state, eid, comp.type);
+    } else {
+
+    }
+  };
+
+  Ecs.removeEntity = function(state, eid) {
+    var h, _, _ref;
+    _ref = state.comps;
+    for (_ in _ref) {
+      h = _ref[_];
+      (function(h) {
+        return delete h[eid];
+      });
+    }
+    return null;
   };
 
   Ecs.get = {};
@@ -93,5 +139,11 @@
     }
     return _results;
   };
+
+  if (typeof window !== 'undefined') {
+    window.Ecs = Ecs;
+  } else {
+    module.exports = Ecs;
+  }
 
 }).call(this);

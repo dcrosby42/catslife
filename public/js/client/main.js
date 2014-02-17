@@ -1,8 +1,12 @@
 (function() {
-  var create, createGroundLayer, createHud, createPlayerSprite, createTouchJoystick, createTreeSprites, cursors, game, group, myText, oldY, preload, spriteTable, state, touchEnabled, update;
+  var create, createGroundLayer, createHud, createPlayerSprite, createTouchJoystick, createTreeSprites, cursorStore, debug, game, getCursors, getJoystick, group, joystickStore, myText, oldY, preload, spriteTable, state, touchEnabled, update;
 
   touchEnabled = function() {
     return Modernizr.touch;
+  };
+
+  debug = function(str) {
+    return console.log(str);
   };
 
   preload = function() {
@@ -18,7 +22,9 @@
 
   oldY = 0;
 
-  cursors = null;
+  cursorStore = {};
+
+  joystickStore = {};
 
   myText = null;
 
@@ -92,70 +98,101 @@
   state = Ecs.create.state();
 
   create = function() {
-    var comp, eid, spriteKey, _i, _len, _ref;
+    var controllerComponent, data, eid, joystickId, keyboardId, spriteKey, type, _i, _len, _ref;
     eid = "e1";
     spriteKey = "player1";
-    _ref = [
-      Ecs.create.component('locallyControlled', {}), Ecs.create.component('physicsPosition', {}), Ecs.create.component('moveControl', {
-        up: false,
-        down: false,
-        left: false,
-        right: false
-      }), Ecs.create.component('velocity', {
+    keyboardId = "keybd1";
+    joystickId = "joy1";
+    _ref = {
+      locallyControlled: {},
+      physicsPosition: {},
+      moveControl: {
         x: 0,
         y: 0
-      }), Ecs.create.component('position', {
+      },
+      velocity: {
         x: 0,
         y: 0
-      }), Ecs.create.component('sprite', {
+      },
+      position: {
+        x: 0,
+        y: 0
+      },
+      sprite: {
         key: spriteKey
-      }), Ecs.create.component('action', {
+      },
+      action: {
         action: "stand",
         direction: "down"
-      }), Ecs.create.component('animation', {
+      },
+      animation: {
         name: "stand_down"
-      })
-    ];
-    for (_i = 0, _len = _ref.length; _i < _len; _i++) {
-      comp = _ref[_i];
-      Ecs.addComponent(state, eid, comp);
+      }
+    };
+    for (data = _i = 0, _len = _ref.length; _i < _len; data = ++_i) {
+      type = _ref[data];
+      Ecs.addComponent(state, eid, Ecs.create.component(type, data));
     }
+    if (touchEnabled()) {
+      controllerComponent = Ecs.create.component('joystickController', {
+        id: joystickId
+      });
+    } else {
+      debug("Keyboard comp " + keyboardId);
+      controllerComponent = Ecs.create.component('keyboardController', {
+        id: keyboardId
+      });
+    }
+    Ecs.addComponent(state, eid, controllerComponent);
     createGroundLayer(game);
     group = game.add.group();
     spriteTable[spriteKey] = createPlayerSprite(game, group);
     createTreeSprites(game, group);
+    cursorStore[keyboardId] = game.input.keyboard.createCursorKeys();
     myText = createHud(game);
-    cursors = game.input.keyboard.createCursorKeys();
     if (touchEnabled()) {
-      return createTouchJoystick();
+      return joystickStore[joystickId] = createTouchJoystick();
     }
+  };
+
+  getCursors = function(keyboardId) {
+    return cursorStore[keyboardId];
+  };
+
+  getJoystick = function(joystickId) {
+    return joystickStore[joystickId];
   };
 
   update = function() {
     var playerSprite;
-    Ecs["for"].components(state, ['locallyControlled', 'moveControl'], function(x, moveControl) {
+    Ecs["for"].components(state, ['keyboardController', 'moveControl'], function(keyboardController, moveControl) {
       var c;
-      c = cursors;
-      moveControl.up = c.up.isDown;
-      moveControl.down = c.down.isDown;
-      moveControl.left = c.left.isDown;
-      return moveControl.right = c.right.isDown;
+      c = getCursors(keyboardController.id);
+      if (c.up.isDown) {
+        moveControl.y = -1;
+      } else if (c.down.isDown) {
+        moveControl.y = 1;
+      } else {
+        moveControl.y = 0;
+      }
+      if (c.left.isDown) {
+        return moveControl.x = -1;
+      } else if (c.right.isDown) {
+        return moveControl.x = 1;
+      } else {
+        return moveControl.x = 0;
+      }
+    });
+    Ecs["for"].components(state, ['joystickController', 'moveControl'], function(joystickController, moveControl) {
+      var js;
+      if (js = getJoystick(joystickController.id)) {
+        moveControl.x = js.normalizedX;
+        return moveControl.y = js.normalizedY;
+      }
     });
     Ecs["for"].components(state, ['moveControl', 'velocity'], function(moveControl, velocity) {
-      if (moveControl.up) {
-        velocity.y = -200;
-      } else if (moveControl.down) {
-        velocity.y = 200;
-      } else {
-        velocity.y = 0;
-      }
-      if (moveControl.left) {
-        return velocity.x = -200;
-      } else if (moveControl.right) {
-        return velocity.x = 200;
-      } else {
-        return velocity.x = 0;
-      }
+      velocity.y = moveControl.y * 200;
+      return velocity.x = moveControl.x * 200;
     });
     Ecs["for"].components(state, ['action', 'animation', 'velocity'], function(action, animation, velocity) {
       var move;

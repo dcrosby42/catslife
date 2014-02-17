@@ -16,6 +16,11 @@ You need Foreman and NodeJS installed.
     $ cd catslife
     $ foreman start
 
+## Specs:
+
+    $ jasmine-node spec --coffee --autotest --watch .
+    # node_modules/jasmine-node/bin/jasmine-node --noStack --coffee spec/
+
 ## Deployment
 
     $ git push heroku master

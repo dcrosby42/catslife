@@ -1,5 +1,8 @@
 touchEnabled = -> Modernizr.touch
 
+debug = (str) ->
+  console.log(str)
+
 preload = ->
   game.load.tilemap('desert', 'assets/maps/burd.json', null, Phaser.Tilemap.TILED_JSON)
   game.load.tileset('tiles', 'assets/maps/ground_1x1.png', 32, 32)
@@ -10,7 +13,8 @@ spriteTable = {}
 
 group = null
 oldY = 0
-cursors = null
+cursorStore = {}
+joystickStore = {}
 
 myText = null
 
@@ -81,27 +85,32 @@ createHud = (game) ->
   text = game.add.text(16,16, 'uhhh', {font: '16px arial', fill: "#000" })
   text
 
-
 state = Ecs.create.state()
 
 create = ->
-
   eid = "e1"
   spriteKey = "player1"
-  for comp in [
-    Ecs.create.component 'locallyControlled', {}
-    Ecs.create.component 'physicsPosition', {}
-    Ecs.create.component 'moveControl', up: false, down: false, left: false, right: false
-    Ecs.create.component 'velocity', x: 0, y: 0
-    Ecs.create.component 'position', x: 0, y: 0
-    Ecs.create.component 'sprite',   key: spriteKey
-    Ecs.create.component 'action', action: "stand", direction: "down"
-    Ecs.create.component 'animation', name: "stand_down"
+  keyboardId = "keybd1"
+  joystickId = "joy1"
 
-  ]
-    Ecs.addComponent(state, eid, comp)
+  for type,data in {
+    locallyControlled:  {}
+    physicsPosition:  {}
+    moveControl:  x: 0, y: 0
+    velocity:  x: 0, y: 0
+    position:  x: 0, y: 0
+    sprite:    key: spriteKey
+    action:  action: "stand", direction: "down"
+    animation:  name: "stand_down"
+  }
+    Ecs.addComponent state, eid, Ecs.create.component(type,data)
 
-  
+  if touchEnabled()
+    controllerComponent = Ecs.create.component 'joystickController', {id: joystickId}
+  else
+    debug "Keyboard comp #{keyboardId}"
+    controllerComponent = Ecs.create.component 'keyboardController', {id: keyboardId}
+  Ecs.addComponent state, eid, controllerComponent
 
   createGroundLayer(game)
 
@@ -110,47 +119,45 @@ create = ->
 
   spriteTable[spriteKey] = createPlayerSprite(game, group)
 
-
   createTreeSprites(game, group)
+
+  cursorStore[keyboardId] = game.input.keyboard.createCursorKeys()
 
   myText = createHud(game)
 
-  cursors = game.input.keyboard.createCursorKeys()
 
   if touchEnabled()
-    createTouchJoystick()
+    joystickStore[joystickId] = createTouchJoystick()
    
+getCursors = (keyboardId) -> cursorStore[keyboardId]
+getJoystick = (joystickId) -> joystickStore[joystickId]
 
 update = ->
+  Ecs.for.components state, ['keyboardController','moveControl'], (keyboardController, moveControl) ->
+    # TODO... is this an "input" system?
+    c = getCursors(keyboardController.id)
+    if c.up.isDown
+      moveControl.y = -1
+    else if c.down.isDown
+      moveControl.y = 1
+    else
+      moveControl.y = 0
 
-  Ecs.for.components state, ['locallyControlled','moveControl'], (x, moveControl) ->
-    c = cursors # TODO... is this an "input" system?
-    moveControl.up = c.up.isDown
-    moveControl.down = c.down.isDown
-    moveControl.left = c.left.isDown
-    moveControl.right = c.right.isDown
-# 
-#     TODO!!!
-#     if game.input.joystickLeft
-#       # Move the ufo using the joystick's normalizedX and Y values,
-#       # which range from -1 to 1.
-#       vx = game.input.joystickLeft.normalizedX * 200
-#       vy = game.input.joystickLeft.normalizedY * -200
+    if c.left.isDown
+      moveControl.x = -1
+    else if c.right.isDown
+      moveControl.x = 1
+    else
+      moveControl.x = 0
+
+  Ecs.for.components state, ['joystickController','moveControl'], (joystickController, moveControl) ->
+    if js = getJoystick(joystickController.id)
+      moveControl.x = js.normalizedX
+      moveControl.y = js.normalizedY
 
   Ecs.for.components state, ['moveControl','velocity'], (moveControl,velocity) ->
-    if moveControl.up
-      velocity.y = -200
-    else if moveControl.down
-      velocity.y = 200
-    else
-      velocity.y = 0
-
-    if moveControl.left
-      velocity.x = -200
-    else if moveControl.right
-      velocity.x = 200
-    else
-      velocity.x = 0
+    velocity.y = moveControl.y * 200
+    velocity.x = moveControl.x * 200
 
   Ecs.for.components state, ['action', 'animation','velocity'], (action, animation, velocity) ->
     move = 'idle'
@@ -179,7 +186,7 @@ update = ->
     phaserSprite.animations.play animation.name
 
   
-# TODO: System?
+# TODO: some kind of output System?
   playerSprite = spriteTable["player1"]
   if playerSprite.y != oldY
     #  Group.sort() is an expensive operation

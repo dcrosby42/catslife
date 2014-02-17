@@ -1,8 +1,15 @@
 
-window.Ecs = {}
+Ecs = {}
 
 Ecs.util = {}
-Ecs.util.merge = (defaults,overrides) -> $.extend({}, defaults, overrides)
+Ecs.util.merge = (defaults,overrides) ->
+  res = {}
+  res[k] = v for k,v of defaults
+  res[k] = v for k,v of overrides
+  res
+
+Ecs.util.isString = (obj) -> "string" == typeof(obj)
+Ecs.util.isComponent = (obj) -> Ecs.util.isString(obj.type)
 
 Ecs.create = {}
 Ecs.create.state = (-> {comps:{}})
@@ -13,6 +20,21 @@ Ecs.addComponent = (state, eid, comp) ->
   state.comps[comp.type] ||= {}
   state.comps[comp.type][eid] = storedComp
   state
+
+Ecs.removeComponent = (state, eid, comp) ->
+  if Ecs.util.isString(comp)
+    compType = comp
+    if comps = state.comps[compType]
+      delete comps[compType]
+  else if Ecs.util.isComponent(comp)
+    Ecs.removeComponent state, eid, comp.type
+  else
+    # Don't know what to do with 'comp'
+
+Ecs.removeEntity = (state, eid) ->
+  ((h) -> delete h[eid]) for _,h of state.comps
+  null
+  
 
 Ecs.get = {}
 Ecs.get.component = (state,eid,type) ->
@@ -52,3 +74,7 @@ Ecs.for.components = (state,types,f) ->
       f(c0)
       
 
+if typeof window != 'undefined'
+  window.Ecs = Ecs
+else
+  module.exports = Ecs

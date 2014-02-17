@@ -24,13 +24,36 @@ module.exports = (grunt) ->
       ]
       tasks: 'default'
 
-  # grunt.loadNpmTasks 'grunt-simple-mocha'
+    shell:
+      jasmine:
+        command: "node_modules/jasmine-node/bin/jasmine-node --noStack --coffee spec/"
+        options:
+          stdout: true
+
+    # https://github.com/jasmine-contrib/grunt-jasmine-node
+    jasmine_node:
+      specFolders: ["./spec"]
+      specNameMatcher: ["./spec"]
+      projectRoot: "."
+      requirejs: false
+      forceExit: true
+      useCoffee: true
+      # jUnit: 
+      #   report: false
+      #   savePath: "./build/reports/jasmine/"
+      #   useDotNotation: true
+      #   consolidate: true
+    # grunt.loadNpmTasks 'grunt-simple-mocha'
   grunt.loadNpmTasks 'grunt-contrib-coffee'
   grunt.loadNpmTasks 'grunt-contrib-watch'
+  grunt.loadNpmTasks 'grunt-jasmine-node'
+  grunt.loadNpmTasks 'grunt-shell'
 
   # grunt.registerTask 'test', 'simplemocha'
   # grunt.registerTask 'default', ['coffee', 'simplemocha']
   grunt.registerTask 'default', ['coffee:client_dev']
+  # grunt.registerTask 'test', 'jasmine_node'
+  grunt.registerTask 'test', 'shell:jasmine'
 
     # uglify:
     #   options:
