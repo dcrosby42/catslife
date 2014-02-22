@@ -30,6 +30,11 @@ module.exports = (grunt) ->
         options:
           stdout: true
 
+      jasmine_watch:
+        command: "node_modules/jasmine-node/bin/jasmine-node --autotest --watch . --noStack --coffee spec/"
+        options:
+          stdout: true
+
     # https://github.com/jasmine-contrib/grunt-jasmine-node
     jasmine_node:
       specFolders: ["./spec"]
@@ -54,6 +59,7 @@ module.exports = (grunt) ->
   grunt.registerTask 'default', ['coffee:client_dev']
   # grunt.registerTask 'test', 'jasmine_node'
   grunt.registerTask 'test', 'shell:jasmine'
+  grunt.registerTask 'wtest', 'shell:jasmine_watch'
 
     # uglify:
     #   options:

@@ -18,8 +18,13 @@ You need Foreman and NodeJS installed.
 
 ## Specs:
 
-    $ jasmine-node spec --coffee --autotest --watch .
-    # node_modules/jasmine-node/bin/jasmine-node --noStack --coffee spec/
+Run all specs:
+
+    $ grunt test
+
+Autotest/watch:
+
+    $ grunt wtest
 
 ## Deployment
 
