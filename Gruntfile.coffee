@@ -25,6 +25,11 @@ module.exports = (grunt) ->
       tasks: 'default'
 
     shell:
+      server:
+        command: "foreman start"
+        options:
+          stdout: true
+
       jasmine:
         command: "node_modules/jasmine-node/bin/jasmine-node --noStack --coffee spec/"
         options:
@@ -58,6 +63,7 @@ module.exports = (grunt) ->
   # grunt.registerTask 'default', ['coffee', 'simplemocha']
   grunt.registerTask 'default', ['coffee:client_dev']
   # grunt.registerTask 'test', 'jasmine_node'
+  grunt.registerTask 'server', 'shell:server'
   grunt.registerTask 'test', 'shell:jasmine'
   grunt.registerTask 'wtest', 'shell:jasmine_watch'
 
