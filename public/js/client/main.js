@@ -24,7 +24,15 @@
 
   cursorStore = {};
 
+  getCursors = function(keyboardId) {
+    return cursorStore[keyboardId];
+  };
+
   joystickStore = {};
+
+  getJoystick = function(joystickId) {
+    return joystickStore[joystickId];
+  };
 
   myText = null;
 
@@ -97,8 +105,10 @@
 
   state = Ecs.create.state();
 
+  window["$S"] = state;
+
   create = function() {
-    var controllerComponent, data, eid, joystickId, keyboardId, spriteKey, type, _i, _len, _ref;
+    var controllerComponent, data, eid, joystickId, keyboardId, spriteKey, type, _ref;
     eid = "e1";
     spriteKey = "player1";
     keyboardId = "keybd1";
@@ -129,16 +139,16 @@
         name: "stand_down"
       }
     };
-    for (data = _i = 0, _len = _ref.length; _i < _len; data = ++_i) {
-      type = _ref[data];
+    for (type in _ref) {
+      data = _ref[type];
       Ecs.addComponent(state, eid, Ecs.create.component(type, data));
     }
     if (touchEnabled()) {
+      joystickStore[joystickId] = createTouchJoystick();
       controllerComponent = Ecs.create.component('joystickController', {
         id: joystickId
       });
     } else {
-      debug("Keyboard comp " + keyboardId);
       controllerComponent = Ecs.create.component('keyboardController', {
         id: keyboardId
       });
@@ -149,18 +159,7 @@
     spriteTable[spriteKey] = createPlayerSprite(game, group);
     createTreeSprites(game, group);
     cursorStore[keyboardId] = game.input.keyboard.createCursorKeys();
-    myText = createHud(game);
-    if (touchEnabled()) {
-      return joystickStore[joystickId] = createTouchJoystick();
-    }
-  };
-
-  getCursors = function(keyboardId) {
-    return cursorStore[keyboardId];
-  };
-
-  getJoystick = function(joystickId) {
-    return joystickStore[joystickId];
+    return myText = createHud(game);
   };
 
   update = function() {
@@ -203,7 +202,7 @@
       if (velocity.y > 0) {
         move = 'down';
       }
-      if (Math.abs(velocity.x) > Math.abs(velocity.y)) {
+      if (Math.abs(velocity.x) >= Math.abs(velocity.y)) {
         if (velocity.x > 0) {
           move = 'right';
         }

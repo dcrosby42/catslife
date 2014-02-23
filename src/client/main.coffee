@@ -13,8 +13,12 @@ spriteTable = {}
 
 group = null
 oldY = 0
+
 cursorStore = {}
+getCursors = (keyboardId) -> cursorStore[keyboardId]
+
 joystickStore = {}
+getJoystick = (joystickId) -> joystickStore[joystickId]
 
 myText = null
 
@@ -75,7 +79,7 @@ createTouchJoystick = (game) ->
   $('canvas').last().offset( $('canvas').first().offset() )
 
 createTreeSprites = (game, group) ->
-  #  Some trees
+  # Make some random trees
   for i in [0...50]
     x = game.math.snapTo(game.world.randomX, 32)
     y = game.math.snapTo(game.world.randomY, 32)
@@ -86,6 +90,7 @@ createHud = (game) ->
   text
 
 state = Ecs.create.state()
+window["$S"] = state # TODO: remove. for debugging only
 
 create = ->
   eid = "e1"
@@ -93,7 +98,7 @@ create = ->
   keyboardId = "keybd1"
   joystickId = "joy1"
 
-  for type,data in {
+  for type,data of {
     locallyControlled:  {}
     physicsPosition:  {}
     moveControl:  x: 0, y: 0
@@ -106,9 +111,9 @@ create = ->
     Ecs.addComponent state, eid, Ecs.create.component(type,data)
 
   if touchEnabled()
+    joystickStore[joystickId] = createTouchJoystick()
     controllerComponent = Ecs.create.component 'joystickController', {id: joystickId}
   else
-    debug "Keyboard comp #{keyboardId}"
     controllerComponent = Ecs.create.component 'keyboardController', {id: keyboardId}
   Ecs.addComponent state, eid, controllerComponent
 
@@ -124,13 +129,6 @@ create = ->
   cursorStore[keyboardId] = game.input.keyboard.createCursorKeys()
 
   myText = createHud(game)
-
-
-  if touchEnabled()
-    joystickStore[joystickId] = createTouchJoystick()
-   
-getCursors = (keyboardId) -> cursorStore[keyboardId]
-getJoystick = (joystickId) -> joystickStore[joystickId]
 
 update = ->
   Ecs.for.components state, ['keyboardController','moveControl'], (keyboardController, moveControl) ->
@@ -163,7 +161,7 @@ update = ->
     move = 'idle'
     if velocity.y < 0 then move = 'up'
     if velocity.y > 0 then move = 'down'
-    if Math.abs(velocity.x) > Math.abs(velocity.y)
+    if Math.abs(velocity.x) >= Math.abs(velocity.y)
       if velocity.x > 0 then move = 'right'
       if velocity.x < 0 then move = 'left'
     
