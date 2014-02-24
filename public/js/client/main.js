@@ -264,13 +264,11 @@
         return local.spriteOrderingCache[sprite.key] = phaserSprite.y;
       }
     });
-    if (false) {
-      return Ecs["for"].components(state, ['debugHud', 'sprite', 'position'], function(debugHud, sprite, position) {
-        var phaserSprite;
-        phaserSprite = local.spriteTable[sprite.key];
-        return local.myText.content = "sprite.x: " + phaserSprite.x + ", sprite.y: " + phaserSprite.y + "\npos.x: " + position.x + ", pos.y: " + position.y;
-      });
-    }
+    return Ecs["for"].components(state, ['debugHud', 'sprite', 'position'], function(debugHud, sprite, position) {
+      var phaserSprite;
+      phaserSprite = local.spriteTable[sprite.key];
+      return local.myText.content = "sprite.x: " + phaserSprite.x + ", sprite.y: " + phaserSprite.y + "\npos.x: " + position.x + ", pos.y: " + position.y;
+    });
   };
 
   game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', {
