@@ -1,40 +1,48 @@
 (function() {
-  var create, createGroundLayer, createHud, createPlayerSprite, createTouchJoystick, createTreeSprites, cursorStore, debug, game, getCursors, getJoystick, group, joystickStore, myText, oldY, preload, spriteTable, state, touchEnabled, update;
+  var create, createGroundLayer, createHud, createPlayerSprite, createTouchJoystick, createTreeSprites, debug, game, getCursors, getJoystick, local, preload, setCursors, setJoystick, state, touchEnabled, update,
+    __slice = [].slice;
+
+  local = {};
+
+  local.spriteTable = {};
+
+  local.spriteOrderingCache = {};
+
+  local.group = null;
+
+  local.oldY = 0;
+
+  local.cursorStore = {};
+
+  local.joystickStore = {};
+
+  local.myText = null;
+
+  debug = function() {
+    var args;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    return console.log.apply(console, args);
+  };
 
   touchEnabled = function() {
     return Modernizr.touch;
   };
 
-  debug = function(str) {
-    return console.log(str);
+  setJoystick = function(joystickId, joystick) {
+    return local.joystickStore[joystickId] = joystick;
   };
-
-  preload = function() {
-    game.load.tilemap('desert', 'assets/maps/burd.json', null, Phaser.Tilemap.TILED_JSON);
-    game.load.tileset('tiles', 'assets/maps/ground_1x1.png', 32, 32);
-    game.load.spritesheet('trees', 'assets/maps/walls_1x2.png', 32, 64);
-    return game.load.spritesheet('cat', 'assets/cat_frames.png', 150, 150);
-  };
-
-  spriteTable = {};
-
-  group = null;
-
-  oldY = 0;
-
-  cursorStore = {};
-
-  getCursors = function(keyboardId) {
-    return cursorStore[keyboardId];
-  };
-
-  joystickStore = {};
 
   getJoystick = function(joystickId) {
-    return joystickStore[joystickId];
+    return local.joystickStore[joystickId];
   };
 
-  myText = null;
+  setCursors = function(keyboardId, cursors) {
+    return local.cursorStore[keyboardId] = cursors;
+  };
+
+  getCursors = function(keyboardId) {
+    return local.cursorStore[keyboardId];
+  };
 
   createPlayerSprite = function(game, group) {
     var fr, playerSprite;
@@ -107,8 +115,15 @@
 
   window["$S"] = state;
 
+  preload = function() {
+    game.load.tilemap('desert', 'assets/maps/burd.json', null, Phaser.Tilemap.TILED_JSON);
+    game.load.tileset('tiles', 'assets/maps/ground_1x1.png', 32, 32);
+    game.load.spritesheet('trees', 'assets/maps/walls_1x2.png', 32, 64);
+    return game.load.spritesheet('cat', 'assets/cat_frames.png', 150, 150);
+  };
+
   create = function() {
-    var controllerComponent, eid, joystickId, keyboardId, spriteKey;
+    var controllerComponent, eid, joystickId, keyboardId, playerSprite, spriteKey;
     eid = "e1";
     spriteKey = "player1";
     keyboardId = "keybd1";
@@ -116,6 +131,7 @@
     Ecs.add.components(state, eid, Ecs.create.components({
       locallyControlled: {},
       physicsPosition: {},
+      groupLayered: {},
       moveControl: {
         x: 0,
         y: 0
@@ -140,26 +156,27 @@
       }
     }));
     if (touchEnabled()) {
-      joystickStore[joystickId] = createTouchJoystick();
+      setJoystick(joystickId, createTouchJoystick());
       controllerComponent = Ecs.create.component('joystickController', {
         id: joystickId
       });
     } else {
+      setCursors(keyboardId, game.input.keyboard.createCursorKeys());
       controllerComponent = Ecs.create.component('keyboardController', {
         id: keyboardId
       });
     }
     Ecs.add.component(state, eid, controllerComponent);
     createGroundLayer(game);
-    group = game.add.group();
-    spriteTable[spriteKey] = createPlayerSprite(game, group);
-    createTreeSprites(game, group);
-    cursorStore[keyboardId] = game.input.keyboard.createCursorKeys();
-    return myText = createHud(game);
+    local.group = game.add.group();
+    playerSprite = createPlayerSprite(game, local.group);
+    local.spriteTable[spriteKey] = playerSprite;
+    local.spriteOrderingCache[spriteKey] = playerSprite.y;
+    createTreeSprites(game, local.group);
+    return local.myText = createHud(game);
   };
 
   update = function() {
-    var playerSprite;
     Ecs["for"].components(state, ['keyboardController', 'moveControl'], function(keyboardController, moveControl) {
       var c;
       c = getCursors(keyboardController.id);
@@ -216,20 +233,24 @@
     });
     Ecs["for"].components(state, ['sprite', 'velocity'], function(sprite, velocity) {
       var phaserSprite;
-      phaserSprite = spriteTable[sprite.key];
+      phaserSprite = local.spriteTable[sprite.key];
       phaserSprite.body.velocity.x = velocity.x;
       return phaserSprite.body.velocity.y = velocity.y;
     });
-    Ecs["for"].components(state, ['animation', 'sprite'], function(animation, sprite) {
+    Ecs["for"].components(state, ['sprite', 'animation'], function(sprite, animation) {
       var phaserSprite;
-      phaserSprite = spriteTable[sprite.key];
+      phaserSprite = local.spriteTable[sprite.key];
       return phaserSprite.animations.play(animation.name);
     });
-    playerSprite = spriteTable["player1"];
-    if (playerSprite.y !== oldY) {
-      group.sort();
-      return oldY = playerSprite.y;
-    }
+    return Ecs["for"].components(state, ['sprite', 'groupLayered'], function(sprite, groupLayered) {
+      var oldY, phaserSprite;
+      phaserSprite = local.spriteTable[sprite.key];
+      oldY = local.spriteOrderingCache[sprite.key];
+      if (phaserSprite.y !== local.oldY) {
+        local.group.sort();
+        return local.spriteOrderingCache[sprite.key] = phaserSprite.y;
+      }
+    });
   };
 
   game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', {

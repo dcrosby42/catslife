@@ -1,26 +1,23 @@
+
+
+local = {}
+local.spriteTable = {}
+local.spriteOrderingCache = {}
+local.group = null
+local.oldY = 0
+local.cursorStore = {}
+local.joystickStore = {}
+local.myText = null
+
+
+debug = (args...) -> console.log(args...)
+
 touchEnabled = -> Modernizr.touch
+setJoystick = (joystickId,joystick) -> local.joystickStore[joystickId] = joystick
+getJoystick = (joystickId) -> local.joystickStore[joystickId]
+setCursors = (keyboardId,cursors) -> local.cursorStore[keyboardId] = cursors
+getCursors = (keyboardId) -> local.cursorStore[keyboardId]
 
-debug = (str) ->
-  console.log(str)
-
-preload = ->
-  game.load.tilemap('desert', 'assets/maps/burd.json', null, Phaser.Tilemap.TILED_JSON)
-  game.load.tileset('tiles', 'assets/maps/ground_1x1.png', 32, 32)
-  game.load.spritesheet('trees', 'assets/maps/walls_1x2.png', 32, 64)
-  game.load.spritesheet('cat', 'assets/cat_frames.png', 150,150)
-
-spriteTable = {}
-
-group = null
-oldY = 0
-
-cursorStore = {}
-getCursors = (keyboardId) -> cursorStore[keyboardId]
-
-joystickStore = {}
-getJoystick = (joystickId) -> joystickStore[joystickId]
-
-myText = null
 
 createPlayerSprite = (game,group) ->
   #  The player:
@@ -92,6 +89,12 @@ createHud = (game) ->
 state = Ecs.create.state()
 window["$S"] = state # TODO: remove. for debugging only
 
+preload = ->
+  game.load.tilemap('desert', 'assets/maps/burd.json', null, Phaser.Tilemap.TILED_JSON)
+  game.load.tileset('tiles', 'assets/maps/ground_1x1.png', 32, 32)
+  game.load.spritesheet('trees', 'assets/maps/walls_1x2.png', 32, 64)
+  game.load.spritesheet('cat', 'assets/cat_frames.png', 150,150)
+
 create = ->
   eid = "e1"
   spriteKey = "player1"
@@ -101,6 +104,7 @@ create = ->
   Ecs.add.components state, eid, Ecs.create.components(
     locallyControlled:  {}
     physicsPosition:  {}
+    groupLayered:  {}
     moveControl:  x: 0, y: 0
     velocity:  x: 0, y: 0
     position:  x: 0, y: 0
@@ -109,29 +113,37 @@ create = ->
     animation:  name: "stand_down"
   )
 
+
   if touchEnabled()
-    joystickStore[joystickId] = createTouchJoystick()
+    setJoystick joystickId, createTouchJoystick()
     controllerComponent = Ecs.create.component 'joystickController', {id: joystickId}
   else
+    setCursors keyboardId, game.input.keyboard.createCursorKeys()
     controllerComponent = Ecs.create.component 'keyboardController', {id: keyboardId}
   Ecs.add.component state, eid, controllerComponent
 
   createGroundLayer(game)
 
   #  This group will hold the main player + all the tree sprites to depth sort against
-  group = game.add.group()
+  local.group = game.add.group()
 
-  spriteTable[spriteKey] = createPlayerSprite(game, group)
+  playerSprite = createPlayerSprite(game, local.group)
+  local.spriteTable[spriteKey] = playerSprite
+  local.spriteOrderingCache[spriteKey] = playerSprite.y
 
-  createTreeSprites(game, group)
+  createTreeSprites(game, local.group)
 
-  cursorStore[keyboardId] = game.input.keyboard.createCursorKeys()
+  local.myText = createHud(game)
 
-  myText = createHud(game)
+
+
 
 update = ->
+  # TODO... is this an "input" system?
+  #   -> keyboardController component
+  #   -> Phaser keyboard cursor input(*)
+  #   <- moveControl component
   Ecs.for.components state, ['keyboardController','moveControl'], (keyboardController, moveControl) ->
-    # TODO... is this an "input" system?
     c = getCursors(keyboardController.id)
     if c.up.isDown
       moveControl.y = -1
@@ -147,10 +159,15 @@ update = ->
     else
       moveControl.x = 0
 
+  # TODO... is this an "input" system?
+  #   -> joystickController component
+  #   -> Phaser joystick input(*)
+  #   <- moveControl component
   Ecs.for.components state, ['joystickController','moveControl'], (joystickController, moveControl) ->
     if js = getJoystick(joystickController.id)
       moveControl.x = js.normalizedX
       moveControl.y = js.normalizedY
+
 
   Ecs.for.components state, ['moveControl','velocity'], (moveControl,velocity) ->
     velocity.y = moveControl.y * 200
@@ -173,24 +190,44 @@ update = ->
     animation.name = "#{action.action}_#{action.direction}"
 
 
+  # TODO: This is an "output" system!
+  #   -> sprite component
+  #   -> velocity component
+  #   <- Phaser sprite body velocity(*)
   Ecs.for.components state, ['sprite','velocity'], (sprite, velocity) ->
-    phaserSprite = spriteTable[sprite.key]  # TODO: This is an "output" system!
+    phaserSprite = local.spriteTable[sprite.key]
     phaserSprite.body.velocity.x = velocity.x
     phaserSprite.body.velocity.y = velocity.y
 
-  Ecs.for.components state, ['animation','sprite'], (animation, sprite) ->
-    phaserSprite = spriteTable[sprite.key]  # TODO: This is an "output" system!
+  # TODO: This is an "output" system!
+  #   -> sprite component
+  #   -> animation component
+  #   <- Phaser sprite animation(*)
+  Ecs.for.components state, ['sprite','animation'], (sprite, animation) ->
+    phaserSprite = local.spriteTable[sprite.key]
     phaserSprite.animations.play animation.name
 
-  
-# TODO: some kind of output System?
-  playerSprite = spriteTable["player1"]
-  if playerSprite.y != oldY
-    #  Group.sort() is an expensive operation
-    #  You really want to minimise how often it is called as much as possible.
-    #  So this little check helps at least, but if you can do it even less than this.
-    group.sort()
-    oldY = playerSprite.y
+
+  # TODO: This is an "output" system!
+  #   -> sprite component
+  #   -> groupLayered component
+  #   -> Phaser sprite(*)
+  #   -> cached sprite position(*)
+  #   -> Phaser group(*)
+  #   <- cached sprite position(*)
+  #   <- re-sorted Phaser group(*)
+  Ecs.for.components state, ['sprite','groupLayered'], (sprite, groupLayered) ->
+    phaserSprite = local.spriteTable[sprite.key]
+    oldY = local.spriteOrderingCache[sprite.key]
+    if phaserSprite.y != local.oldY
+      #  Group.sort() is an expensive operation
+      #  You really want to minimise how often it is called as much as possible.
+      #  So this little check helps at least, but if you can do it even less than this.
+      local.group.sort()
+      local.spriteOrderingCache[sprite.key] = phaserSprite.y
 
 
+#
+# Instantiate the Phaser game object: GO!
+#
 game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', { preload: preload, create: create, update: update })
