@@ -1,6 +1,12 @@
 (function() {
-  var create, createGroundLayer, createHud, createPlayerSprite, createTouchJoystick, createTreeSprites, debug, game, getCursors, getJoystick, local, preload, setCursors, setJoystick, state, touchEnabled, update,
+  var create, createGroundLayer, createHud, createPlayerSprite, createTouchJoystick, createTreeSprites, debug, game, local, preload, state, update,
     __slice = [].slice;
+
+  debug = function() {
+    var args;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    return console.log.apply(console, args);
+  };
 
   local = {};
 
@@ -18,29 +24,23 @@
 
   local.myText = null;
 
-  debug = function() {
-    var args;
-    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-    return console.log.apply(console, args);
-  };
-
-  touchEnabled = function() {
+  local.touchEnabled = function() {
     return Modernizr.touch;
   };
 
-  setJoystick = function(joystickId, joystick) {
+  local.setJoystick = function(joystickId, joystick) {
     return local.joystickStore[joystickId] = joystick;
   };
 
-  getJoystick = function(joystickId) {
+  local.getJoystick = function(joystickId) {
     return local.joystickStore[joystickId];
   };
 
-  setCursors = function(keyboardId, cursors) {
+  local.setCursors = function(keyboardId, cursors) {
     return local.cursorStore[keyboardId] = cursors;
   };
 
-  getCursors = function(keyboardId) {
+  local.getCursors = function(keyboardId) {
     return local.cursorStore[keyboardId];
   };
 
@@ -155,13 +155,13 @@
         name: "stand_down"
       }
     }));
-    if (touchEnabled()) {
-      setJoystick(joystickId, createTouchJoystick());
+    if (local.touchEnabled()) {
+      local.setJoystick(joystickId, createTouchJoystick());
       controllerComponent = Ecs.create.component('joystickController', {
         id: joystickId
       });
     } else {
-      setCursors(keyboardId, game.input.keyboard.createCursorKeys());
+      local.setCursors(keyboardId, game.input.keyboard.createCursorKeys());
       controllerComponent = Ecs.create.component('keyboardController', {
         id: keyboardId
       });
@@ -179,7 +179,7 @@
   update = function() {
     Ecs["for"].components(state, ['keyboardController', 'moveControl'], function(keyboardController, moveControl) {
       var c;
-      c = getCursors(keyboardController.id);
+      c = local.getCursors(keyboardController.id);
       if (c.up.isDown) {
         moveControl.y = -1;
       } else if (c.down.isDown) {
@@ -197,7 +197,7 @@
     });
     Ecs["for"].components(state, ['joystickController', 'moveControl'], function(joystickController, moveControl) {
       var js;
-      if (js = getJoystick(joystickController.id)) {
+      if (js = local.getJoystick(joystickController.id)) {
         moveControl.x = js.normalizedX;
         return moveControl.y = js.normalizedY;
       }

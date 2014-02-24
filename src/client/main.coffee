@@ -1,4 +1,4 @@
-
+debug = (args...) -> console.log(args...)
 
 local = {}
 local.spriteTable = {}
@@ -8,15 +8,11 @@ local.oldY = 0
 local.cursorStore = {}
 local.joystickStore = {}
 local.myText = null
-
-
-debug = (args...) -> console.log(args...)
-
-touchEnabled = -> Modernizr.touch
-setJoystick = (joystickId,joystick) -> local.joystickStore[joystickId] = joystick
-getJoystick = (joystickId) -> local.joystickStore[joystickId]
-setCursors = (keyboardId,cursors) -> local.cursorStore[keyboardId] = cursors
-getCursors = (keyboardId) -> local.cursorStore[keyboardId]
+local.touchEnabled = -> Modernizr.touch
+local.setJoystick = (joystickId,joystick) -> local.joystickStore[joystickId] = joystick
+local.getJoystick = (joystickId) -> local.joystickStore[joystickId]
+local.setCursors = (keyboardId,cursors) -> local.cursorStore[keyboardId] = cursors
+local.getCursors = (keyboardId) -> local.cursorStore[keyboardId]
 
 
 createPlayerSprite = (game,group) ->
@@ -114,11 +110,11 @@ create = ->
   )
 
 
-  if touchEnabled()
-    setJoystick joystickId, createTouchJoystick()
+  if local.touchEnabled()
+    local.setJoystick joystickId, createTouchJoystick()
     controllerComponent = Ecs.create.component 'joystickController', {id: joystickId}
   else
-    setCursors keyboardId, game.input.keyboard.createCursorKeys()
+    local.setCursors keyboardId, game.input.keyboard.createCursorKeys()
     controllerComponent = Ecs.create.component 'keyboardController', {id: keyboardId}
   Ecs.add.component state, eid, controllerComponent
 
@@ -144,7 +140,7 @@ update = ->
   #   -> Phaser keyboard cursor input(*)
   #   <- moveControl component
   Ecs.for.components state, ['keyboardController','moveControl'], (keyboardController, moveControl) ->
-    c = getCursors(keyboardController.id)
+    c = local.getCursors(keyboardController.id)
     if c.up.isDown
       moveControl.y = -1
     else if c.down.isDown
@@ -164,7 +160,7 @@ update = ->
   #   -> Phaser joystick input(*)
   #   <- moveControl component
   Ecs.for.components state, ['joystickController','moveControl'], (joystickController, moveControl) ->
-    if js = getJoystick(joystickController.id)
+    if js = local.getJoystick(joystickController.id)
       moveControl.x = js.normalizedX
       moveControl.y = js.normalizedY
 
