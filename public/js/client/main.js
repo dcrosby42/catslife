@@ -104,7 +104,7 @@
 
   createHud = function(game) {
     var text;
-    text = game.add.text(16, 16, 'uhhh', {
+    text = game.add.text(16, 16, '', {
       font: '16px arial',
       fill: "#000"
     });
@@ -132,6 +132,7 @@
       locallyControlled: {},
       physicsPosition: {},
       groupLayered: {},
+      debugHud: {},
       moveControl: {
         x: 0,
         y: 0
@@ -202,6 +203,12 @@
         return moveControl.y = js.normalizedY;
       }
     });
+    Ecs["for"].components(state, ['sprite', 'position'], function(sprite, position) {
+      var phaserSprite;
+      phaserSprite = local.spriteTable[sprite.key];
+      position.x = phaserSprite.x;
+      return position.y = phaserSprite.y;
+    });
     Ecs["for"].components(state, ['moveControl', 'velocity'], function(moveControl, velocity) {
       velocity.y = moveControl.y * 200;
       return velocity.x = moveControl.x * 200;
@@ -231,6 +238,12 @@
       }
       return animation.name = "" + action.action + "_" + action.direction;
     });
+    Ecs["for"].components(state, ['sprite', 'position'], function(sprite, position) {
+      var phaserSprite;
+      phaserSprite = local.spriteTable[sprite.key];
+      phaserSprite.x = position.x;
+      return phaserSprite.y = position.y;
+    });
     Ecs["for"].components(state, ['sprite', 'velocity'], function(sprite, velocity) {
       var phaserSprite;
       phaserSprite = local.spriteTable[sprite.key];
@@ -242,7 +255,7 @@
       phaserSprite = local.spriteTable[sprite.key];
       return phaserSprite.animations.play(animation.name);
     });
-    return Ecs["for"].components(state, ['sprite', 'groupLayered'], function(sprite, groupLayered) {
+    Ecs["for"].components(state, ['sprite', 'groupLayered'], function(sprite, groupLayered) {
       var oldY, phaserSprite;
       phaserSprite = local.spriteTable[sprite.key];
       oldY = local.spriteOrderingCache[sprite.key];
@@ -251,6 +264,13 @@
         return local.spriteOrderingCache[sprite.key] = phaserSprite.y;
       }
     });
+    if (false) {
+      return Ecs["for"].components(state, ['debugHud', 'sprite', 'position'], function(debugHud, sprite, position) {
+        var phaserSprite;
+        phaserSprite = local.spriteTable[sprite.key];
+        return local.myText.content = "sprite.x: " + phaserSprite.x + ", sprite.y: " + phaserSprite.y + "\npos.x: " + position.x + ", pos.y: " + position.y;
+      });
+    }
   };
 
   game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', {

@@ -79,7 +79,7 @@ createTreeSprites = (game, group) ->
     group.create(x, y, 'trees', game.rnd.integerInRange(0, 8))
 
 createHud = (game) ->
-  text = game.add.text(16,16, 'uhhh', {font: '16px arial', fill: "#000" })
+  text = game.add.text(16,16, '', {font: '16px arial', fill: "#000" })
   text
 
 state = Ecs.create.state()
@@ -101,6 +101,7 @@ create = ->
     locallyControlled:  {}
     physicsPosition:  {}
     groupLayered:  {}
+    debugHud:  {}
     moveControl:  x: 0, y: 0
     velocity:  x: 0, y: 0
     position:  x: 0, y: 0
@@ -164,6 +165,15 @@ update = ->
       moveControl.x = js.normalizedX
       moveControl.y = js.normalizedY
 
+  # TODO... is this an "input" system?
+  #   -> sprite component
+  #   -> Phaser sprite position (*)
+  #   <- position component
+  Ecs.for.components state, ['sprite','position'], (sprite, position) ->
+    phaserSprite = local.spriteTable[sprite.key]
+    position.x = phaserSprite.x
+    position.y = phaserSprite.y
+
 
   Ecs.for.components state, ['moveControl','velocity'], (moveControl,velocity) ->
     velocity.y = moveControl.y * 200
@@ -185,6 +195,14 @@ update = ->
 
     animation.name = "#{action.action}_#{action.direction}"
 
+  # TODO: This is an "output" system!
+  #   -> sprite component
+  #   -> position component
+  #   <- Phaser sprite position(*)
+  Ecs.for.components state, ['sprite','position'], (sprite, position) ->
+    phaserSprite = local.spriteTable[sprite.key]
+    phaserSprite.x = position.x
+    phaserSprite.y = position.y
 
   # TODO: This is an "output" system!
   #   -> sprite component
@@ -222,6 +240,9 @@ update = ->
       local.group.sort()
       local.spriteOrderingCache[sprite.key] = phaserSprite.y
 
+  Ecs.for.components state, ['debugHud','sprite','position'], (debugHud, sprite, position) ->
+    phaserSprite = local.spriteTable[sprite.key]
+    local.myText.content = "sprite.x: #{phaserSprite.x}, sprite.y: #{phaserSprite.y}\npos.x: #{position.x}, pos.y: #{position.y}"
 
 #
 # Instantiate the Phaser game object: GO!
