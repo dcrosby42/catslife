@@ -1,6 +1,8 @@
 Ecs = require '../../src/ecs/ecs'
 
 describe "Ecs", ->
+  withEid = (comp, eid) -> Ecs.util.merge(comp,eid:eid)
+
   it "exists", -> expect(Ecs).toBeDefined()
 
   describe "utils", ->
@@ -61,12 +63,55 @@ describe "Ecs", ->
         c = Ecs.create.component("x",{})
         expect(c.type).toEqual("x")
 
+      it "makes a new component with only 1 param", ->
+        c = Ecs.create.component("x")
+        expect(c.type).toEqual("x")
+
+        c2 = Ecs.create.component("y",null)
+        expect(c2.type).toEqual("y")
+
+    describe "components", ->
+      it "converts a 'table' (object w properties) into a set of components", ->
+        comps = Ecs.create.components {
+          color: {val:'red'}
+          pos: {x:45}
+        }
+        expect(comps[0]).toEqual {type:'color', val:'red'}
+        expect(comps[1]).toEqual {type:'pos', x: 45}
+
+      it "returns empty array for empty object, null, and missing arg", ->
+        expect(Ecs.create.components({})).toEqual []
+        expect(Ecs.create.components(null)).toEqual []
+        expect(Ecs.create.components()).toEqual []
+
+  describe "add", ->
+    state = null
+    pos = Ecs.create.component "pos", x:50
+    color = Ecs.create.component "color", val: "red"
+
+    beforeEach ->
+      state = Ecs.create.state()
+
+    describe "component", ->
+      it "adds a component to the specified entity", ->
+        Ecs.add.component state, 'e42', pos
+        comp = Ecs.get.component(state, 'e42', "pos")
+        expect(comp).toEqual withEid(pos,'e42')
+
+    describe "components", ->
+      it "adds an array of components to the specified entity", ->
+        Ecs.add.components state, 'e42', [pos,color]
+        comp1 = Ecs.get.component(state, 'e42', "pos")
+        expect(comp1).toEqual withEid(pos,'e42')
+
+        comp2 = Ecs.get.component(state, 'e42', "color")
+        expect(comp2).toEqual withEid(color,'e42')
+
   describe "get", ->
     state = null
     pos = Ecs.create.component("pos", x:10, y:50)
     pos2 = Ecs.create.component("pos", x:30, y:40)
     color = Ecs.create.component("color", r:100)
-    withEid = (comp, eid) -> Ecs.util.merge(comp,eid:eid)
 
     beforeEach ->
       state = Ecs.create.state()
@@ -76,16 +121,16 @@ describe "Ecs", ->
 
     describe "component", ->
       it "gets the component for the given entity and component type", ->
-        Ecs.addComponent state, "e1", pos
+        Ecs.add.component state, "e1", pos
         got = Ecs.get.component(state,"e1","pos")
         expect(got).toEqual(withEid(pos,"e1"))
 
     describe "components", ->
       beforeEach ->
-        Ecs.addComponent state, "e42", pos
-        Ecs.addComponent state, "e42", color
-        Ecs.addComponent state, "e37", pos2
-        Ecs.addComponent state, "e0", color
+        Ecs.add.component state, "e42", pos
+        Ecs.add.component state, "e42", color
+        Ecs.add.component state, "e37", pos2
+        Ecs.add.component state, "e0", color
 
       it "gets all components of the given type", ->
         got = Ecs.get.components(state,"pos")
@@ -109,19 +154,18 @@ describe "Ecs", ->
     phys3 = Ecs.create.component("phys", ang_v: 0.3)
     sprite3 = Ecs.create.component("sprite", action: "jump")
 
-    withEid = (comp, eid) -> Ecs.util.merge(comp,eid:eid)
 
     beforeEach ->
       state = Ecs.create.state()
-      Ecs.addComponent state, "e1", pos
-      Ecs.addComponent state, "e1", color
-      Ecs.addComponent state, "e2", pos2
-      Ecs.addComponent state, "e2", sprite
-      Ecs.addComponent state, "e2", phys2
-      Ecs.addComponent state, "e3", pos3
-      Ecs.addComponent state, "e3", sprite3
-      Ecs.addComponent state, "e3", phys3
-      # Ecs.addComponent state, "e42", color
+      Ecs.add.component state, "e1", pos
+      Ecs.add.component state, "e1", color
+      Ecs.add.component state, "e2", pos2
+      Ecs.add.component state, "e2", sprite
+      Ecs.add.component state, "e2", phys2
+      Ecs.add.component state, "e3", pos3
+      Ecs.add.component state, "e3", sprite3
+      Ecs.add.component state, "e3", phys3
+      # Ecs.add.component state, "e42", color
 
     describe "components", ->
       it "can search on 1 component type", ->
@@ -149,6 +193,7 @@ describe "Ecs", ->
         expect(hits.length).toEqual 2
         expect(hits).toContain([withEid(pos2, "e2"), withEid(sprite, "e2"), withEid(phys2,"e2")])
         expect(hits).toContain([withEid(pos3, "e3"), withEid(sprite3, "e3"), withEid(phys3,"e3")])
+  describe "remove", ->
 
 
 

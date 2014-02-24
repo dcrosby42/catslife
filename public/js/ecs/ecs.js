@@ -41,13 +41,36 @@
     });
   };
 
-  Ecs.addComponent = function(state, eid, comp) {
+  Ecs.create.components = function(table) {
+    var data, type, _results;
+    _results = [];
+    for (type in table) {
+      data = table[type];
+      _results.push(Ecs.create.component(type, data));
+    }
+    return _results;
+  };
+
+  Ecs.add = {};
+
+  Ecs.add.component = function(state, eid, comp) {
     var storedComp, _base, _name;
     storedComp = Ecs.util.merge(comp, {
       eid: eid
     });
     (_base = state.comps)[_name = comp.type] || (_base[_name] = {});
     state.comps[comp.type][eid] = storedComp;
+    return state;
+  };
+
+  Ecs.add.components = function(state, eid, comps) {
+    var c, _;
+    if (comps) {
+      for (_ in comps) {
+        c = comps[_];
+        Ecs.add.component(state, eid, c);
+      }
+    }
     return state;
   };
 
@@ -142,7 +165,7 @@
 
   if (typeof window !== 'undefined') {
     window.Ecs = Ecs;
-  } else {
+  } else if ((typeof module !== 'undefined') && (typeof module.exports !== 'undefined')) {
     module.exports = Ecs;
   }
 

@@ -1,25 +1,50 @@
 
 Ecs = {}
 
+
+#
+# Ecs.util
+#
+
 Ecs.util = {}
 Ecs.util.merge = (defaults,overrides) ->
   res = {}
   res[k] = v for k,v of defaults
   res[k] = v for k,v of overrides
   res
-
 Ecs.util.isString = (obj) -> "string" == typeof(obj)
 Ecs.util.isComponent = (obj) -> Ecs.util.isString(obj.type)
+
+#
+# Ecs.create
+#
 
 Ecs.create = {}
 Ecs.create.state = (-> {comps:{}})
 Ecs.create.component = (type, obj) -> Ecs.util.merge(obj, {type: type})
+Ecs.create.components = (table) -> Ecs.create.component type,data for type,data of table
 
-Ecs.addComponent = (state, eid, comp) ->
+#
+# Ecs.add
+#
+
+Ecs.add = {}
+
+Ecs.add.component = (state, eid, comp) ->
   storedComp = Ecs.util.merge(comp, {eid: eid})
   state.comps[comp.type] ||= {}
   state.comps[comp.type][eid] = storedComp
   state
+
+Ecs.add.components = (state, eid, comps) ->
+  if comps
+    Ecs.add.component state,eid,c for _,c of comps
+  state
+
+
+#
+# Ecs.remove
+#
 
 Ecs.removeComponent = (state, eid, comp) ->
   if Ecs.util.isString(comp)
@@ -34,7 +59,10 @@ Ecs.removeComponent = (state, eid, comp) ->
 Ecs.removeEntity = (state, eid) ->
   ((h) -> delete h[eid]) for _,h of state.comps
   null
-  
+
+#
+# Ecs.get
+#
 
 Ecs.get = {}
 Ecs.get.component = (state,eid,type) ->
@@ -46,6 +74,10 @@ Ecs.get.components = (state,type) ->
     comp for eid,comp of h
   else
     []
+
+#
+# Ecs.for
+#
 
 Ecs.for = {}
 Ecs.for.components = (state,types,f) ->
@@ -74,7 +106,13 @@ Ecs.for.components = (state,types,f) ->
       f(c0)
       
 
+#
+# EXPORTS:
+#
+
 if typeof window != 'undefined'
+  # Browser
   window.Ecs = Ecs
-else
+else if (typeof module != 'undefined') and (typeof module.exports != 'undefined')
+  # Node
   module.exports = Ecs

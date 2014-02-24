@@ -98,7 +98,7 @@ create = ->
   keyboardId = "keybd1"
   joystickId = "joy1"
 
-  for type,data of {
+  Ecs.add.components state, eid, Ecs.create.components(
     locallyControlled:  {}
     physicsPosition:  {}
     moveControl:  x: 0, y: 0
@@ -107,15 +107,14 @@ create = ->
     sprite:    key: spriteKey
     action:  action: "stand", direction: "down"
     animation:  name: "stand_down"
-  }
-    Ecs.addComponent state, eid, Ecs.create.component(type,data)
+  )
 
   if touchEnabled()
     joystickStore[joystickId] = createTouchJoystick()
     controllerComponent = Ecs.create.component 'joystickController', {id: joystickId}
   else
     controllerComponent = Ecs.create.component 'keyboardController', {id: keyboardId}
-  Ecs.addComponent state, eid, controllerComponent
+  Ecs.add.component state, eid, controllerComponent
 
   createGroundLayer(game)
 

@@ -108,12 +108,12 @@
   window["$S"] = state;
 
   create = function() {
-    var controllerComponent, data, eid, joystickId, keyboardId, spriteKey, type, _ref;
+    var controllerComponent, eid, joystickId, keyboardId, spriteKey;
     eid = "e1";
     spriteKey = "player1";
     keyboardId = "keybd1";
     joystickId = "joy1";
-    _ref = {
+    Ecs.add.components(state, eid, Ecs.create.components({
       locallyControlled: {},
       physicsPosition: {},
       moveControl: {
@@ -138,11 +138,7 @@
       animation: {
         name: "stand_down"
       }
-    };
-    for (type in _ref) {
-      data = _ref[type];
-      Ecs.addComponent(state, eid, Ecs.create.component(type, data));
-    }
+    }));
     if (touchEnabled()) {
       joystickStore[joystickId] = createTouchJoystick();
       controllerComponent = Ecs.create.component('joystickController', {
@@ -153,7 +149,7 @@
         id: keyboardId
       });
     }
-    Ecs.addComponent(state, eid, controllerComponent);
+    Ecs.add.component(state, eid, controllerComponent);
     createGroundLayer(game);
     group = game.add.group();
     spriteTable[spriteKey] = createPlayerSprite(game, group);
