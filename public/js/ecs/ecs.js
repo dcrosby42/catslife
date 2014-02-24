@@ -1,5 +1,6 @@
 (function() {
-  var Ecs;
+  var Ecs,
+    __slice = [].slice;
 
   Ecs = {};
 
@@ -26,6 +27,18 @@
   Ecs.util.isComponent = function(obj) {
     return Ecs.util.isString(obj.type);
   };
+
+  Ecs.log = {};
+
+  Ecs.log.debug = function() {
+    var args;
+    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    return console.log.apply(console, args);
+  };
+
+  Ecs.log.warn = Ecs.log.debug;
+
+  Ecs.log.error = Ecs.log.debug;
 
   Ecs.create = {};
 
@@ -74,30 +87,49 @@
     return state;
   };
 
-  Ecs.removeComponent = function(state, eid, comp) {
+  Ecs.remove = {};
+
+  Ecs.remove.component = function(state, eid, comp) {
     var compType, comps;
     if (Ecs.util.isString(comp)) {
       compType = comp;
       if (comps = state.comps[compType]) {
-        return delete comps[compType];
+        if (delete comps[eid]) {
+          return true;
+        } else {
+          Ecs.log.warn("Ecs.remove.component: failed to delete '" + compType + "' component from " + eid);
+          return false;
+        }
+      } else {
+        return true;
       }
     } else if (Ecs.util.isComponent(comp)) {
-      return Ecs.removeComponent(state, eid, comp.type);
+      return Ecs.remove.component(state, eid, comp.type);
     } else {
-
+      Ecs.log.warn("Ecs.remove.component: can't delete component from entity " + eid + ":", comp);
+      return false;
     }
   };
 
-  Ecs.removeEntity = function(state, eid) {
-    var h, _, _ref;
+  Ecs.remove.entity = function(state, eid) {
+    var all, fails, h, res, _, _ref;
     _ref = state.comps;
     for (_ in _ref) {
       h = _ref[_];
-      (function(h) {
-        return delete h[eid];
-      });
+      all = (delete h[eid] ? true : (Ecs.log.warn("Ecs.remove.entity: failed to delete component for " + eid + ":", h[eid]), false));
     }
-    return null;
+    fails = (function() {
+      var _i, _len, _results;
+      _results = [];
+      for (_i = 0, _len = all.length; _i < _len; _i++) {
+        res = all[_i];
+        if (res !== true) {
+          _results.push(res);
+        }
+      }
+      return _results;
+    })();
+    return fails.length === 0;
   };
 
   Ecs.get = {};
@@ -143,7 +175,7 @@
             c2 = Ecs.get.component(state, eid, t2);
             if (c2) {
               if (numTypes > 3) {
-                _results.push(console.log("Ecs.for.components: CAN'T DO MORE THAN 3 TYPES PER QUERY YET! SRY!"));
+                _results.push(Ecs.log.error("Ecs.for.components: CAN'T DO MORE THAN 3 TYPES PER QUERY YET! SRY!"));
               } else {
                 _results.push(f(c0, c1, c2));
               }

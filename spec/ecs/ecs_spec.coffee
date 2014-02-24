@@ -193,8 +193,115 @@ describe "Ecs", ->
         expect(hits.length).toEqual 2
         expect(hits).toContain([withEid(pos2, "e2"), withEid(sprite, "e2"), withEid(phys2,"e2")])
         expect(hits).toContain([withEid(pos3, "e3"), withEid(sprite3, "e3"), withEid(phys3,"e3")])
+
   describe "remove", ->
+    state = null
+    beforeEach ->
+      state = Ecs.create.state()
+      Ecs.add.components state, 'e1', Ecs.create.components(
+        pos: {x:50}
+        color: {val:'red'}
+      )
+      Ecs.add.components state, 'e2', Ecs.create.components(
+        pos: {x:100}
+        color: {val:'green'}
+      )
 
+    seeComponent = (eid,ctype,data) ->
+      comp = Ecs.get.component(state,eid,ctype)
+      expect(comp).toEqual withEid(Ecs.util.merge(data,type:ctype),eid)
+      comp
 
+    removeComponent = (eid,comp) ->
+      res = Ecs.remove.component(state, 'e1', comp)
+      expect(res).toEqual true
+      res
 
+    seeUndefinedComponent = (eid,ctype) ->
+      comp = Ecs.get.component(state,eid,ctype)
+      expect(comp).toBeUndefined()
+      comp
 
+    removeEntity = (eid) ->
+      res = Ecs.remove.entity(state,eid)
+      expect(res).toEqual(true)
+      res
+
+    describe "component", ->
+      it "removes the component of the given type from the indicated entity", ->
+        # Sanity check components
+        seeComponent 'e1', 'pos', {x:50}
+        seeComponent 'e1', 'color', {val:'red'}
+        seeComponent 'e2', 'pos', {x:100}
+        seeComponent 'e2', 'color', {val:'green'}
+
+        # Remove component by name:
+        removeComponent 'e1', 'pos'
+
+        # See pos component is gone:
+        seeUndefinedComponent 'e1', 'pos'
+
+        # See other components intact:
+        seeComponent 'e1', 'color', {val:'red'}
+        seeComponent 'e2', 'pos', {x:100}
+        seeComponent 'e2', 'color', {val:'green'}
+
+        # Another!
+        removeComponent 'e1', 'color'
+
+        seeUndefinedComponent 'e1', 'color'
+
+        seeComponent 'e2', 'pos', {x:100}
+        seeComponent 'e2', 'color', {val:'green'}
+
+      it "removes the given component from the indicated entity", ->
+        # Sanity check components
+        pos = seeComponent 'e1', 'pos', {x:50}
+        color = seeComponent 'e1', 'color', {val:'red'}
+        seeComponent 'e2', 'pos', {x:100}
+        seeComponent 'e2', 'color', {val:'green'}
+
+        # Remove component by name:
+        removeComponent 'e1', pos
+
+        # See pos component is gone:
+        seeUndefinedComponent 'e1', 'pos'
+
+        # See other components intact:
+        seeComponent 'e1', 'color', {val:'red'}
+        seeComponent 'e2', 'pos', {x:100}
+        seeComponent 'e2', 'color', {val:'green'}
+
+        # Another!
+        removeComponent 'e1', color
+
+        seeUndefinedComponent 'e1', 'color'
+
+        seeComponent 'e2', 'pos', {x:100}
+        seeComponent 'e2', 'color', {val:'green'}
+
+    describe "entity", ->
+      it "removes ALL components stored for a given entity", ->
+        # Sanity check components
+        seeComponent 'e1', 'pos', {x:50}
+        seeComponent 'e1', 'color', {val:'red'}
+        seeComponent 'e2', 'pos', {x:100}
+        seeComponent 'e2', 'color', {val:'green'}
+        
+        # Remove e1
+        removeEntity 'e1'
+
+        # See all e1 components are gone:
+        seeUndefinedComponent 'e1', 'pos'
+        seeUndefinedComponent 'e1', 'color'
+
+        # See e2 components intact: 
+        seeComponent 'e2', 'pos', {x:100}
+        seeComponent 'e2', 'color', {val:'green'}
+    
+        # Remove e2:
+        removeEntity 'e2'
+
+        # See all e2 components are gone:
+        seeUndefinedComponent 'e2', 'pos'
+        seeUndefinedComponent 'e2', 'color'

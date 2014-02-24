@@ -15,6 +15,10 @@ Ecs.util.merge = (defaults,overrides) ->
 Ecs.util.isString = (obj) -> "string" == typeof(obj)
 Ecs.util.isComponent = (obj) -> Ecs.util.isString(obj.type)
 
+Ecs.log = {}
+Ecs.log.debug = (args...) -> console.log args...
+Ecs.log.warn = Ecs.log.debug
+Ecs.log.error = Ecs.log.debug
 #
 # Ecs.create
 #
@@ -46,19 +50,36 @@ Ecs.add.components = (state, eid, comps) ->
 # Ecs.remove
 #
 
-Ecs.removeComponent = (state, eid, comp) ->
+Ecs.remove = {}
+
+Ecs.remove.component = (state, eid, comp) ->
   if Ecs.util.isString(comp)
     compType = comp
     if comps = state.comps[compType]
-      delete comps[compType]
+      if delete comps[eid]
+        return true
+      else
+        Ecs.log.warn "Ecs.remove.component: failed to delete '#{compType}' component from #{eid}"
+        return false
+    else
+      return true
+      
   else if Ecs.util.isComponent(comp)
-    Ecs.removeComponent state, eid, comp.type
+    return Ecs.remove.component(state, eid, comp.type)
   else
     # Don't know what to do with 'comp'
+    Ecs.log.warn "Ecs.remove.component: can't delete component from entity #{eid}:", comp
+    return false
 
-Ecs.removeEntity = (state, eid) ->
-  ((h) -> delete h[eid]) for _,h of state.comps
-  null
+Ecs.remove.entity = (state, eid) ->
+  all = (if delete h[eid]
+           true
+         else
+           Ecs.log.warn "Ecs.remove.entity: failed to delete component for #{eid}:", h[eid]
+           false
+         ) for _,h of state.comps
+  fails = (res for res in all when res != true)
+  fails.length == 0
 
 #
 # Ecs.get
@@ -94,7 +115,7 @@ Ecs.for.components = (state,types,f) ->
           c2 = Ecs.get.component(state,eid,t2)
           if c2
             if numTypes > 3
-              console.log("Ecs.for.components: CAN'T DO MORE THAN 3 TYPES PER QUERY YET! SRY!")
+              Ecs.log.error("Ecs.for.components: CAN'T DO MORE THAN 3 TYPES PER QUERY YET! SRY!")
               #f(c0,c1,c2,...)
             else # numTypes is 3, call back with 3 comps
               f(c0,c1,c2)
