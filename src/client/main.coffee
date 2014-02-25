@@ -1,18 +1,169 @@
 debug = (args...) -> console.log(args...)
 
+class KeyboardController
+  constructor: (@keyboard,@mappings) ->
+    @current = {}
+    @previous = {}
+    @_addKeyCaptures()
+    @update()
+
+  update: ->
+    @current = {}
+    diff = {}
+    @_updateSym(@keyboard,@current,@previous,diff,sym,conf) for sym,conf of @mappings
+    @previous = @current
+    return diff
+    
+  _updateSym: (keyboard,current,previous,diff,sym,conf) ->
+    if conf.hold
+      code = Phaser.Keyboard[conf.hold]
+      val = keyboard.isDown(code)
+      current[sym] = val
+      if val != previous[sym]
+        diff[sym] = val
+
+  _addKeyCaptures: ->
+    for sym,conf of @mappings
+      if conf.hold
+        code = Phaser.Keyboard[conf.hold]
+        if typeof code != 'undefined'
+          @keyboard.addKeyCapture(code)
+
+class Simulation
+  constructor: (@state) ->
+
+  processEvent: (event) ->
+    window['$events'] ||= []
+    window['$events'].push(event)
+    if event.type == "controllerInput"
+      if controller = Ecs.get.component(state,event.eid,"controller")
+        controller[event.action] = event.value
+
+  update: (world) ->
+    Ecs.for.components @state, ['controller','moveControl'], (controller, moveControl) ->
+      if controller.up
+        moveControl.y = -1
+      else if controller.down
+        moveControl.y = 1
+      else
+        moveControl.y = 0
+
+      if controller.left
+        moveControl.x = -1
+      else if controller.right
+        moveControl.x = 1
+      else
+        moveControl.x = 0
+
+    # TODO... is this an "input" system?
+    #   -> joystickController component
+    #   -> Phaser joystick input(*)
+    #   <- moveControl component
+    # Ecs.for.components state, ['joystickController','moveControl'], (joystickController, moveControl) ->
+    #   if js = local.getJoystick(joystickController.id)
+    #     moveControl.x = js.normalizedX
+    #     moveControl.y = js.normalizedY
+
+    # TODO... is this an "input" system?
+    #   -> sprite component
+    #   -> Phaser sprite position (*)
+    #   <- position component
+    Ecs.for.components @state, ['sprite','position'], (sprite, position) ->
+      phaserSprite = world.spriteTable[sprite.key]
+      position.x = phaserSprite.x
+      position.y = phaserSprite.y
+
+
+    Ecs.for.components @state, ['moveControl','velocity'], (moveControl,velocity) ->
+      velocity.y = moveControl.y * 200
+      velocity.x = moveControl.x * 200
+
+    Ecs.for.components @state, ['action', 'animation','velocity'], (action, animation, velocity) ->
+      move = 'idle'
+      if velocity.y < 0 then move = 'up'
+      if velocity.y > 0 then move = 'down'
+      if Math.abs(velocity.x) >= Math.abs(velocity.y)
+        if velocity.x > 0 then move = 'right'
+        if velocity.x < 0 then move = 'left'
+      
+      if move == 'idle'
+        action.action = "stand"
+      else
+        action.action = "walk"
+        action.direction = move
+
+      animation.name = "#{action.action}_#{action.direction}"
+
+    # TODO: This is an "output" system!
+    #   -> sprite component
+    #   -> position component
+    #   <- Phaser sprite position(*)
+    Ecs.for.components @state, ['sprite','position'], (sprite, position) ->
+      phaserSprite = world.spriteTable[sprite.key]
+      phaserSprite.x = position.x
+      phaserSprite.y = position.y
+
+    # TODO: This is an "output" system!
+    #   -> sprite component
+    #   -> velocity component
+    #   <- Phaser sprite body velocity(*)
+    Ecs.for.components @state, ['sprite','velocity'], (sprite, velocity) ->
+      phaserSprite = world.spriteTable[sprite.key]
+      phaserSprite.body.velocity.x = velocity.x
+      phaserSprite.body.velocity.y = velocity.y
+
+    # TODO: This is an "output" system!
+    #   -> sprite component
+    #   -> animation component
+    #   <- Phaser sprite animation(*)
+    Ecs.for.components @state, ['sprite','animation'], (sprite, animation) ->
+      phaserSprite = world.spriteTable[sprite.key]
+      phaserSprite.animations.play animation.name
+
+
+    # TODO: This is an "output" system!
+    #   -> sprite component
+    #   -> groupLayered component
+    #   -> Phaser sprite(*)
+    #   -> cached sprite position(*)
+    #   -> Phaser group(*)
+    #   <- cached sprite position(*)
+    #   <- re-sorted Phaser group(*)
+    Ecs.for.components @state, ['sprite','groupLayered'], (sprite, groupLayered) ->
+      phaserSprite = world.spriteTable[sprite.key]
+      oldY = world.spriteOrderingCache[sprite.key]
+      if phaserSprite.y != local.oldY
+        #  Group.sort() is an expensive operation
+        #  You really want to minimise how often it is called as much as possible.
+        #  So this little check helps at least, but if you can do it even less than this.
+        world.group.sort()
+        world.spriteOrderingCache[sprite.key] = phaserSprite.y
+
+    # TODO: This is an "output" system!
+    #   -> debugHud component
+    #   -> sprite component
+    #   -> position component
+    #   -> Phaser sprite(*)
+    #   <- updated HUD content
+    Ecs.for.components @state, ['debugHud','sprite','position'], (debugHud, sprite, position) ->
+      phaserSprite = world.spriteTable[sprite.key]
+      local.myText.content = "sprite.x: #{phaserSprite.x.toFixed()}, sprite.y: #{phaserSprite.y.toFixed()}\npos.x: #{position.x.toFixed()}, pos.y: #{position.y.toFixed()}"
+
+
 local = {}
 local.spriteTable = {}
 local.spriteOrderingCache = {}
 local.group = null
 local.oldY = 0
-local.cursorStore = {}
-local.joystickStore = {}
-local.myText = null
+local.controllerHookups = {}
 local.touchEnabled = -> Modernizr.touch
-local.setJoystick = (joystickId,joystick) -> local.joystickStore[joystickId] = joystick
-local.getJoystick = (joystickId) -> local.joystickStore[joystickId]
-local.setCursors = (keyboardId,cursors) -> local.cursorStore[keyboardId] = cursors
-local.getCursors = (keyboardId) -> local.cursorStore[keyboardId]
+# local.cursorStore = {}
+# local.joystickStore = {}
+local.myText = null
+# local.setJoystick = (joystickId,joystick) -> local.joystickStore[joystickId] = joystick
+# local.getJoystick = (joystickId) -> local.joystickStore[joystickId]
+# local.setCursors = (keyboardId,cursors) -> local.cursorStore[keyboardId] = cursors
+# local.getCursors = (keyboardId) -> local.cursorStore[keyboardId]
 
 
 createPlayerSprite = (game,group) ->
@@ -83,7 +234,11 @@ createHud = (game) ->
   text
 
 state = Ecs.create.state()
-window["$S"] = state # TODO: remove. for debugging only
+simulation = new Simulation(state)
+window["$state"] = state # TODO: remove. for debugging only
+window["$world"] = local # TODO: remove. for debugging only
+window["$simulation"] = simulation # TODO: remove. for debugging only
+
 
 preload = ->
   game.load.tilemap('desert', 'assets/maps/burd.json', null, Phaser.Tilemap.TILED_JSON)
@@ -92,14 +247,13 @@ preload = ->
   game.load.spritesheet('cat', 'assets/cat_frames.png', 150,150)
 
 create = ->
-  eid = "e1"
   spriteKey = "player1"
   keyboardId = "keybd1"
   joystickId = "joy1"
 
-  Ecs.add.components state, eid, Ecs.create.components(
-    locallyControlled:  {}
-    physicsPosition:  {}
+  local.entity = "e1"
+  Ecs.add.components state, local.entity, Ecs.create.components(
+    controller: { up: false, down: false, left: false, right: false }
     groupLayered:  {}
     debugHud:  {}
     moveControl:  x: 0, y: 0
@@ -112,12 +266,17 @@ create = ->
 
 
   if local.touchEnabled()
-    local.setJoystick joystickId, createTouchJoystick()
-    controllerComponent = Ecs.create.component 'joystickController', {id: joystickId}
+    # local.setJoystick joystickId, createTouchJoystick()
+    # controllerComponent = Ecs.create.component 'joystickController', {id: joystickId}
   else
-    local.setCursors keyboardId, game.input.keyboard.createCursorKeys()
-    controllerComponent = Ecs.create.component 'keyboardController', {id: keyboardId}
-  Ecs.add.component state, eid, controllerComponent
+    local.controllerHookups[local.entity] = new KeyboardController(game.input.keyboard, {
+      up:    { hold: "UP" }
+      down:  { hold: "DOWN" }
+      left:  { hold: "LEFT" }
+      right: { hold: "RIGHT" }
+    })
+
+  # Ecs.add.component state, eid, controllerComponent
 
   createGroundLayer(game)
 
@@ -132,117 +291,48 @@ create = ->
 
   local.myText = createHud(game)
 
+#
+# Events
+#
+# character movement 
+#   keyboard or joystick -> move.x = -1 etc
+#
+# character instantiation
+#   ? -> player entity & components & phaser objects
 
+
+# {
+#   up:    { hold: "W" }
+#   down:  { hold: "S" }
+#   left:  { hold: "A" }
+#   right: { hold: "D" }
+# }
+
+generateInputEvents = (controllerHookups) ->
+  events = []
+
+  for eid,controller of controllerHookups
+    controlChanges = controller.update()
+
+    controlInputEvents = (
+      {
+        type: "controllerInput"
+        eid: local.entity
+        action: k
+        value: v
+      } for k,v of controlChanges)
+      
+    events = events.concat controlInputEvents
+
+  return events
 
 
 update = ->
-  # TODO... is this an "input" system?
-  #   -> keyboardController component
-  #   -> Phaser keyboard cursor input(*)
-  #   <- moveControl component
-  Ecs.for.components state, ['keyboardController','moveControl'], (keyboardController, moveControl) ->
-    c = local.getCursors(keyboardController.id)
-    if c.up.isDown
-      moveControl.y = -1
-    else if c.down.isDown
-      moveControl.y = 1
-    else
-      moveControl.y = 0
+  events = generateInputEvents(local.controllerHookups)
 
-    if c.left.isDown
-      moveControl.x = -1
-    else if c.right.isDown
-      moveControl.x = 1
-    else
-      moveControl.x = 0
+  simulation.processEvent(e) for e in events
 
-  # TODO... is this an "input" system?
-  #   -> joystickController component
-  #   -> Phaser joystick input(*)
-  #   <- moveControl component
-  Ecs.for.components state, ['joystickController','moveControl'], (joystickController, moveControl) ->
-    if js = local.getJoystick(joystickController.id)
-      moveControl.x = js.normalizedX
-      moveControl.y = js.normalizedY
-
-  # TODO... is this an "input" system?
-  #   -> sprite component
-  #   -> Phaser sprite position (*)
-  #   <- position component
-  Ecs.for.components state, ['sprite','position'], (sprite, position) ->
-    phaserSprite = local.spriteTable[sprite.key]
-    position.x = phaserSprite.x
-    position.y = phaserSprite.y
-
-
-  Ecs.for.components state, ['moveControl','velocity'], (moveControl,velocity) ->
-    velocity.y = moveControl.y * 200
-    velocity.x = moveControl.x * 200
-
-  Ecs.for.components state, ['action', 'animation','velocity'], (action, animation, velocity) ->
-    move = 'idle'
-    if velocity.y < 0 then move = 'up'
-    if velocity.y > 0 then move = 'down'
-    if Math.abs(velocity.x) >= Math.abs(velocity.y)
-      if velocity.x > 0 then move = 'right'
-      if velocity.x < 0 then move = 'left'
-    
-    if move == 'idle'
-      action.action = "stand"
-    else
-      action.action = "walk"
-      action.direction = move
-
-    animation.name = "#{action.action}_#{action.direction}"
-
-  # TODO: This is an "output" system!
-  #   -> sprite component
-  #   -> position component
-  #   <- Phaser sprite position(*)
-  Ecs.for.components state, ['sprite','position'], (sprite, position) ->
-    phaserSprite = local.spriteTable[sprite.key]
-    phaserSprite.x = position.x
-    phaserSprite.y = position.y
-
-  # TODO: This is an "output" system!
-  #   -> sprite component
-  #   -> velocity component
-  #   <- Phaser sprite body velocity(*)
-  Ecs.for.components state, ['sprite','velocity'], (sprite, velocity) ->
-    phaserSprite = local.spriteTable[sprite.key]
-    phaserSprite.body.velocity.x = velocity.x
-    phaserSprite.body.velocity.y = velocity.y
-
-  # TODO: This is an "output" system!
-  #   -> sprite component
-  #   -> animation component
-  #   <- Phaser sprite animation(*)
-  Ecs.for.components state, ['sprite','animation'], (sprite, animation) ->
-    phaserSprite = local.spriteTable[sprite.key]
-    phaserSprite.animations.play animation.name
-
-
-  # TODO: This is an "output" system!
-  #   -> sprite component
-  #   -> groupLayered component
-  #   -> Phaser sprite(*)
-  #   -> cached sprite position(*)
-  #   -> Phaser group(*)
-  #   <- cached sprite position(*)
-  #   <- re-sorted Phaser group(*)
-  Ecs.for.components state, ['sprite','groupLayered'], (sprite, groupLayered) ->
-    phaserSprite = local.spriteTable[sprite.key]
-    oldY = local.spriteOrderingCache[sprite.key]
-    if phaserSprite.y != local.oldY
-      #  Group.sort() is an expensive operation
-      #  You really want to minimise how often it is called as much as possible.
-      #  So this little check helps at least, but if you can do it even less than this.
-      local.group.sort()
-      local.spriteOrderingCache[sprite.key] = phaserSprite.y
-
-  Ecs.for.components state, ['debugHud','sprite','position'], (debugHud, sprite, position) ->
-    phaserSprite = local.spriteTable[sprite.key]
-    local.myText.content = "sprite.x: #{phaserSprite.x}, sprite.y: #{phaserSprite.y}\npos.x: #{position.x}, pos.y: #{position.y}"
+  simulation.update(local)
 
 #
 # Instantiate the Phaser game object: GO!
