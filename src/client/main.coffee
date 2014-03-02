@@ -155,7 +155,7 @@ local.spriteTable = {}
 local.spriteOrderingCache = {}
 local.group = null
 local.oldY = 0
-local.controllerHookups = {}
+local.controllerHookups = []
 local.touchEnabled = -> Modernizr.touch
 # local.cursorStore = {}
 # local.joystickStore = {}
@@ -269,14 +269,21 @@ create = ->
     # local.setJoystick joystickId, createTouchJoystick()
     # controllerComponent = Ecs.create.component 'joystickController', {id: joystickId}
   else
-    local.controllerHookups[local.entity] = new KeyboardController(game.input.keyboard, {
+    arrowKeysController = new KeyboardController(game.input.keyboard, {
       up:    { hold: "UP" }
       down:  { hold: "DOWN" }
       left:  { hold: "LEFT" }
       right: { hold: "RIGHT" }
     })
 
-  # Ecs.add.component state, eid, controllerComponent
+    wasdController = new KeyboardController(game.input.keyboard, {
+      up:    { hold: "W" }
+      down:  { hold: "S" }
+      left:  { hold: "A" }
+      right: { hold: "D" }
+    })
+    local.controllerHookups.push [local.entity, arrowKeysController]
+    local.controllerHookups.push [local.entity, wasdController]
 
   createGroundLayer(game)
 
@@ -311,7 +318,7 @@ create = ->
 generateInputEvents = (controllerHookups) ->
   events = []
 
-  for eid,controller of controllerHookups
+  for [eid,controller] in controllerHookups
     controlChanges = controller.update()
 
     controlInputEvents = (

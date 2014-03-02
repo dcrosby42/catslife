@@ -182,7 +182,7 @@
 
   local.oldY = 0;
 
-  local.controllerHookups = {};
+  local.controllerHookups = [];
 
   local.touchEnabled = function() {
     return Modernizr.touch;
@@ -275,7 +275,7 @@
   };
 
   create = function() {
-    var joystickId, keyboardId, playerSprite, spriteKey;
+    var arrowKeysController, joystickId, keyboardId, playerSprite, spriteKey, wasdController;
     spriteKey = "player1";
     keyboardId = "keybd1";
     joystickId = "joy1";
@@ -315,7 +315,7 @@
     if (local.touchEnabled()) {
 
     } else {
-      local.controllerHookups[local.entity] = new KeyboardController(game.input.keyboard, {
+      arrowKeysController = new KeyboardController(game.input.keyboard, {
         up: {
           hold: "UP"
         },
@@ -329,6 +329,22 @@
           hold: "RIGHT"
         }
       });
+      wasdController = new KeyboardController(game.input.keyboard, {
+        up: {
+          hold: "W"
+        },
+        down: {
+          hold: "S"
+        },
+        left: {
+          hold: "A"
+        },
+        right: {
+          hold: "D"
+        }
+      });
+      local.controllerHookups.push([local.entity, arrowKeysController]);
+      local.controllerHookups.push([local.entity, wasdController]);
     }
     createGroundLayer(game);
     local.group = game.add.group();
@@ -340,10 +356,10 @@
   };
 
   generateInputEvents = function(controllerHookups) {
-    var controlChanges, controlInputEvents, controller, eid, events, k, v;
+    var controlChanges, controlInputEvents, controller, eid, events, k, v, _i, _len, _ref;
     events = [];
-    for (eid in controllerHookups) {
-      controller = controllerHookups[eid];
+    for (_i = 0, _len = controllerHookups.length; _i < _len; _i++) {
+      _ref = controllerHookups[_i], eid = _ref[0], controller = _ref[1];
       controlChanges = controller.update();
       controlInputEvents = (function() {
         var _results;
