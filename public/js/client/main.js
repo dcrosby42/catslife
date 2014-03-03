@@ -279,10 +279,10 @@
           touchEnd: function() {
             return input[inputProperty] = null;
           }
-        },
-        right: {
-          type: 'none'
         }
+      },
+      right: {
+        type: 'none'
       }
     });
     $('canvas').last().css('z-index', 20);

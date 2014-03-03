@@ -247,10 +247,10 @@ initTouchJoystick = (input, inputProperty) ->
         
         touchEnd: ->
           input[inputProperty] = null
-      right:
-        # We're not using anything on the right for this demo, but you can add buttons, etc.
-        # See https://github.com/austinhallock/html5-virtual-game-controller/ for examples.
-        type: 'none'
+    right:
+      # We're not using anything on the right for this demo, but you can add buttons, etc.
+      # See https://github.com/austinhallock/html5-virtual-game-controller/ for examples.
+      type: 'none'
 
   # This is an ugly hack to get this to show up over the Phaser Canvas
   # (which has a manually set z-index in the example code) and position it in the right place,
