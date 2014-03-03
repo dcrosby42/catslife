@@ -1,18 +1,26 @@
 (function() {
-  var KeyboardController, Simulation, create, createGroundLayer, createHud, createPlayerSprite, createTouchJoystick, createTreeSprites, debug, game, generateInputEvents, local, preload, simulation, state, update,
-    __slice = [].slice;
+  var JoystickController, KeyboardController, Simulation, appendDebugPanel, create, createGroundLayer, createHud, createPlayerSprite, createTreeSprites, debug, game, generateInputEvents, initTouchJoystick, local, preload, simulation, state, update;
 
-  debug = function() {
-    var args;
-    args = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-    return console.log.apply(console, args);
+  appendDebugPanel = function() {
+    return $('body').append("<div id='debug-panel'><pre id='debug-pre'></pre></div>");
+  };
+
+  appendDebugPanel();
+
+  debug = function(str) {
+    return $('#debug-pre').append("" + str + "\n");
   };
 
   KeyboardController = (function() {
     function KeyboardController(keyboard, mappings) {
       this.keyboard = keyboard;
       this.mappings = mappings;
-      this.current = {};
+      this.current = {
+        up: false,
+        down: false,
+        left: false,
+        right: false
+      };
       this.previous = {};
       this._addKeyCaptures();
       this.update();
@@ -38,6 +46,7 @@
         val = keyboard.isDown(code);
         current[sym] = val;
         if (val !== previous[sym]) {
+          debug("keybd controller: adding diff " + sym + ": " + val);
           return diff[sym] = val;
         }
       }
@@ -67,6 +76,51 @@
 
   })();
 
+  JoystickController = (function() {
+    function JoystickController(input, joystickName) {
+      this.input = input;
+      this.joystickName = joystickName;
+      this.current = {};
+      this.previous = {};
+      this.thresh = 0.1;
+    }
+
+    JoystickController.prototype.update = function() {
+      var info, nx, ny;
+      info = this.input[this.joystickName];
+      if (info) {
+        nx = this.input[this.joystickName].normalizedX;
+        ny = this.input[this.joystickName].normalizedY;
+      } else {
+        nx = 0;
+        ny = 0;
+      }
+      if (nx === this.old_nx && ny === this.old_ny) {
+        return;
+      }
+      this.current = {};
+      this.diff = {};
+      this._change('right', nx > this.thresh);
+      this._change('left', nx < -this.thresh);
+      this._change('up', ny > this.thresh);
+      this._change('down', ny < -this.thresh);
+      this.previous = this.current;
+      this.old_nx = nx;
+      this.old_ny = ny;
+      return this.diff;
+    };
+
+    JoystickController.prototype._change = function(key, val) {
+      this.current[key] = val;
+      if (val !== this.previous[key]) {
+        return this.diff[key] = val;
+      }
+    };
+
+    return JoystickController;
+
+  })();
+
   Simulation = (function() {
     function Simulation(state) {
       this.state = state;
@@ -74,8 +128,6 @@
 
     Simulation.prototype.processEvent = function(event) {
       var controller;
-      window['$events'] || (window['$events'] = []);
-      window['$events'].push(event);
       if (event.type === "controllerInput") {
         if (controller = Ecs.get.component(state, event.eid, "controller")) {
           return controller[event.action] = event.value;
@@ -215,17 +267,17 @@
     return layer = game.add.tilemapLayer(0, 0, 800, 600, tileset, map, 0);
   };
 
-  createTouchJoystick = function(game) {
+  initTouchJoystick = function(input, inputProperty) {
     GameController.init({
       left: {
         type: 'joystick',
         joystick: {
           touchStart: (function() {}),
           touchMove: function(joystick_details) {
-            return game.input.joystickLeft = joystick_details;
+            return input[inputProperty] = joystick_details;
           },
           touchEnd: function() {
-            return game.input.joystickLeft = null;
+            return input[inputProperty] = null;
           }
         },
         right: {
@@ -275,7 +327,7 @@
   };
 
   create = function() {
-    var arrowKeysController, joystickId, keyboardId, playerSprite, spriteKey, wasdController;
+    var arrowKeysController, joystickController, joystickId, keyboardId, playerSprite, spriteKey, wasdController;
     spriteKey = "player1";
     keyboardId = "keybd1";
     joystickId = "joy1";
@@ -313,7 +365,9 @@
       }
     }));
     if (local.touchEnabled()) {
-
+      initTouchJoystick(game.input, 'joystickLeft');
+      joystickController = new JoystickController(game.input, "joystickLeft");
+      local.controllerHookups.push([local.entity, joystickController]);
     } else {
       arrowKeysController = new KeyboardController(game.input.keyboard, {
         up: {
@@ -329,6 +383,7 @@
           hold: "RIGHT"
         }
       });
+      local.controllerHookups.push([local.entity, arrowKeysController]);
       wasdController = new KeyboardController(game.input.keyboard, {
         up: {
           hold: "W"
@@ -343,7 +398,6 @@
           hold: "D"
         }
       });
-      local.controllerHookups.push([local.entity, arrowKeysController]);
       local.controllerHookups.push([local.entity, wasdController]);
     }
     createGroundLayer(game);

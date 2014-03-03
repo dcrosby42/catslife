@@ -1,8 +1,11 @@
-debug = (args...) -> console.log(args...)
+appendDebugPanel = -> $('body').append("<div id='debug-panel'><pre id='debug-pre'></pre></div>")
+appendDebugPanel()
+debug = (str) -> $('#debug-pre').append("#{str}\n")
+
 
 class KeyboardController
   constructor: (@keyboard,@mappings) ->
-    @current = {}
+    @current = { up: false, down: false, left: false, right: false }
     @previous = {}
     @_addKeyCaptures()
     @update()
@@ -20,6 +23,7 @@ class KeyboardController
       val = keyboard.isDown(code)
       current[sym] = val
       if val != previous[sym]
+        debug "keybd controller: adding diff #{sym}: #{val}"
         diff[sym] = val
 
   _addKeyCaptures: ->
@@ -29,12 +33,46 @@ class KeyboardController
         if typeof code != 'undefined'
           @keyboard.addKeyCapture(code)
 
+class JoystickController
+  constructor: (@input,@joystickName) ->
+    @current = {}
+    @previous = {}
+    @thresh = 0.1
+
+  update: ->
+    info = @input[@joystickName]
+    if info
+      nx = @input[@joystickName].normalizedX
+      ny = @input[@joystickName].normalizedY
+    else
+      nx = 0
+      ny = 0
+    return if nx == @old_nx and ny == @old_ny
+    @current = {}
+    @diff = {}
+    @_change 'right', nx > @thresh
+    @_change 'left', nx < -@thresh
+    @_change 'up', ny > @thresh
+    @_change 'down', ny < -@thresh
+    @previous = @current
+    @old_nx = nx
+    @old_ny = ny
+    @diff
+
+
+  _change: (key,val) ->
+    @current[key] = val
+    if val != @previous[key]
+      @diff[key] = val
+
+
+
 class Simulation
   constructor: (@state) ->
 
   processEvent: (event) ->
-    window['$events'] ||= []
-    window['$events'].push(event)
+    # window['$events'] ||= []
+    # window['$events'].push(event)
     if event.type == "controllerInput"
       if controller = Ecs.get.component(state,event.eid,"controller")
         controller[event.action] = event.value
@@ -192,7 +230,7 @@ createGroundLayer = (game) ->
   tileset = game.add.tileset('tiles')
   layer = game.add.tilemapLayer(0, 0, 800, 600, tileset, map, 0)
 
-createTouchJoystick = (game) ->
+initTouchJoystick = (input, inputProperty) ->
   # Use Austin Hallock's HTML5 Virtual Game Controller
   # https://github.com/austinhallock/html5-virtual-game-controller/
   # Note: you must also require gamecontroller.js on your host page.
@@ -205,10 +243,10 @@ createTouchJoystick = (game) ->
         touchStart: (->)
           # Don't need this, but the event is here if you want it.
         touchMove: (joystick_details) ->
-          game.input.joystickLeft = joystick_details
+          input[inputProperty] = joystick_details
         
         touchEnd: ->
-          game.input.joystickLeft = null
+          input[inputProperty] = null
       right:
         # We're not using anything on the right for this demo, but you can add buttons, etc.
         # See https://github.com/austinhallock/html5-virtual-game-controller/ for examples.
@@ -266,8 +304,11 @@ create = ->
 
 
   if local.touchEnabled()
+    initTouchJoystick(game.input, 'joystickLeft')
     # local.setJoystick joystickId, createTouchJoystick()
     # controllerComponent = Ecs.create.component 'joystickController', {id: joystickId}
+    joystickController = new JoystickController(game.input, "joystickLeft")
+    local.controllerHookups.push [local.entity, joystickController]
   else
     arrowKeysController = new KeyboardController(game.input.keyboard, {
       up:    { hold: "UP" }
@@ -275,6 +316,7 @@ create = ->
       left:  { hold: "LEFT" }
       right: { hold: "RIGHT" }
     })
+    local.controllerHookups.push [local.entity, arrowKeysController]
 
     wasdController = new KeyboardController(game.input.keyboard, {
       up:    { hold: "W" }
@@ -282,7 +324,6 @@ create = ->
       left:  { hold: "A" }
       right: { hold: "D" }
     })
-    local.controllerHookups.push [local.entity, arrowKeysController]
     local.controllerHookups.push [local.entity, wasdController]
 
   createGroundLayer(game)
