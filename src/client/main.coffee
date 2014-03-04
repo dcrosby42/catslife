@@ -107,14 +107,14 @@ UpdateDebugHud = Ecs.create.system
 
 
 
-$world = {}
-$world.spriteTable = {}
-$world.spriteOrderingCache = {}
-$world.group = null
-$world.oldY = 0
-$world.controllerHookups = []
-$world.touchEnabled = -> Modernizr.touch
-$world.myText = null
+$WORLD = {}
+$WORLD.spriteTable = {}
+$WORLD.spriteOrderingCache = {}
+$WORLD.group = null
+$WORLD.oldY = 0
+$WORLD.controllerHookups = []
+$WORLD.touchEnabled = -> Modernizr.touch
+$WORLD.myText = null
 
 createPlayerSprite = (game,group) ->
   #  The player:
@@ -152,8 +152,8 @@ createHud = (game) ->
   text = game.add.text(16,16, '', {font: '16px arial', fill: "#000" })
   text
 
-$world.state = Ecs.create.state()
-$world.simulation = Ecs.create.simulation($world, $world.state)
+$WORLD.state = Ecs.create.state()
+$WORLD.simulation = Ecs.create.simulation($WORLD, $WORLD.state)
 
 for s in [
   ReadSpritePosition
@@ -166,34 +166,34 @@ for s in [
   SortSprites
   UpdateDebugHud
   ]
-  $world.simulation.addSystem s
+  $WORLD.simulation.addSystem s
 
 controllerEventHandler = Ecs.create.eventHandler (state,event) ->
   if controller = Ecs.get.component(state,event.eid,"controller")
     controller[event.action] = event.value
 
-$world.simulation.subscribeEvent "controllerInput", controllerEventHandler
+$WORLD.simulation.subscribeEvent "controllerInput", controllerEventHandler
 
-window["$state"] = $world.state # TODO: remove. for debugging only
-window["$world"] = $world # TODO: remove. for debugging only
-window["$simulation"] = $world.simulation # TODO: remove. for debugging only
+window["$state"] = $WORLD.state # TODO: remove. for debugging only
+window["$WORLD"] = $WORLD # TODO: remove. for debugging only
+window["$simulation"] = $WORLD.simulation # TODO: remove. for debugging only
 
 
 preload = ->
-  game = $world.game
+  game = $WORLD.game
   game.load.tilemap('desert', 'assets/maps/burd.json', null, Phaser.Tilemap.TILED_JSON)
   game.load.tileset('tiles', 'assets/maps/ground_1x1.png', 32, 32)
   game.load.spritesheet('trees', 'assets/maps/walls_1x2.png', 32, 64)
   game.load.spritesheet('cat', 'assets/cat_frames.png', 150,150)
 
 create = ->
-  game = $world.game
+  game = $WORLD.game
   spriteKey = "player1"
   keyboardId = "keybd1"
   joystickId = "joy1"
 
-  $world.entity = "e1"
-  Ecs.add.components $world.state, $world.entity, Ecs.create.components(
+  $WORLD.player_eid = "e1"
+  Ecs.add.components $WORLD.simulation.state, $WORLD.player_eid, Ecs.create.components(
     controller: { up: false, down: false, left: false, right: false }
     groupLayered:  {}
     debugHud:  {}
@@ -206,9 +206,9 @@ create = ->
   )
 
 
-  if $world.touchEnabled()
+  if $WORLD.touchEnabled()
     joystickController = JoystickController.create(game.input, "joystickLeft")
-    $world.controllerHookups.push [$world.entity, joystickController]
+    $WORLD.controllerHookups.push [$WORLD.player_eid, joystickController]
 
   else
     arrowKeysController = KeyboardController.create(game.input.keyboard, {
@@ -217,7 +217,7 @@ create = ->
       left:  { hold: "LEFT" }
       right: { hold: "RIGHT" }
     })
-    $world.controllerHookups.push [$world.entity, arrowKeysController]
+    $WORLD.controllerHookups.push [$WORLD.player_eid, arrowKeysController]
 
     wasdController = KeyboardController.create(game.input.keyboard, {
       up:    { hold: "W" }
@@ -225,20 +225,20 @@ create = ->
       left:  { hold: "A" }
       right: { hold: "D" }
     })
-    $world.controllerHookups.push [$world.entity, wasdController]
+    $WORLD.controllerHookups.push [$WORLD.player_eid, wasdController]
 
   createGroundLayer(game)
 
   #  This group will hold the main player + all the tree sprites to depth sort against
-  $world.group = game.add.group()
+  $WORLD.group = game.add.group()
 
-  playerSprite = createPlayerSprite(game, $world.group)
-  $world.spriteTable[spriteKey] = playerSprite
-  $world.spriteOrderingCache[spriteKey] = playerSprite.y
+  playerSprite = createPlayerSprite(game, $WORLD.group)
+  $WORLD.spriteTable[spriteKey] = playerSprite
+  $WORLD.spriteOrderingCache[spriteKey] = playerSprite.y
 
-  createTreeSprites(game, $world.group)
+  createTreeSprites(game, $WORLD.group)
 
-  $world.myText = createHud(game)
+  $WORLD.myText = createHud(game)
 
 
 generateInputEvents = (controllerHookups) ->
@@ -250,7 +250,7 @@ generateInputEvents = (controllerHookups) ->
     controlInputEvents = (
       {
         type: "controllerInput"
-        eid: $world.entity
+        eid: $WORLD.player_eid
         action: k
         value: v
       } for k,v of controlChanges)
@@ -261,12 +261,12 @@ generateInputEvents = (controllerHookups) ->
 
 
 update = ->
-  events = generateInputEvents($world.controllerHookups)
+  events = generateInputEvents($WORLD.controllerHookups)
 
-  $world.simulation.processEvent(e) for e in events
-  $world.simulation.update()
+  $WORLD.simulation.processEvent(e) for e in events
+  $WORLD.simulation.update()
 
 #
 # Instantiate the Phaser game object: GO!
 #
-$world.game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', { preload: preload, create: create, update: update })
+$WORLD.game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', { preload: preload, create: create, update: update })

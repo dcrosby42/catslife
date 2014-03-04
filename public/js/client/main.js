@@ -1,5 +1,5 @@
 (function() {
-  var $world, ReadSpritePosition, SortSprites, UpdateAnimationAction, UpdateDebugHud, UpdateMoveControl, UpdateVelocity, WriteSpriteAnimation, WriteSpritePosition, WriteSpriteVelocity, controllerEventHandler, create, createGroundLayer, createHud, createPlayerSprite, createTreeSprites, debug, generateInputEvents, preload, s, update, _i, _len, _ref,
+  var $WORLD, ReadSpritePosition, SortSprites, UpdateAnimationAction, UpdateDebugHud, UpdateMoveControl, UpdateVelocity, WriteSpriteAnimation, WriteSpritePosition, WriteSpriteVelocity, controllerEventHandler, create, createGroundLayer, createHud, createPlayerSprite, createTreeSprites, debug, generateInputEvents, preload, s, update, _i, _len, _ref,
     __slice = [].slice;
 
   debug = function() {
@@ -135,23 +135,23 @@
     }
   });
 
-  $world = {};
+  $WORLD = {};
 
-  $world.spriteTable = {};
+  $WORLD.spriteTable = {};
 
-  $world.spriteOrderingCache = {};
+  $WORLD.spriteOrderingCache = {};
 
-  $world.group = null;
+  $WORLD.group = null;
 
-  $world.oldY = 0;
+  $WORLD.oldY = 0;
 
-  $world.controllerHookups = [];
+  $WORLD.controllerHookups = [];
 
-  $world.touchEnabled = function() {
+  $WORLD.touchEnabled = function() {
     return Modernizr.touch;
   };
 
-  $world.myText = null;
+  $WORLD.myText = null;
 
   createPlayerSprite = function(game, group) {
     var fr, playerSprite;
@@ -198,14 +198,14 @@
     return text;
   };
 
-  $world.state = Ecs.create.state();
+  $WORLD.state = Ecs.create.state();
 
-  $world.simulation = Ecs.create.simulation($world, $world.state);
+  $WORLD.simulation = Ecs.create.simulation($WORLD, $WORLD.state);
 
   _ref = [ReadSpritePosition, UpdateMoveControl, UpdateVelocity, UpdateAnimationAction, WriteSpritePosition, WriteSpriteVelocity, WriteSpriteAnimation, SortSprites, UpdateDebugHud];
   for (_i = 0, _len = _ref.length; _i < _len; _i++) {
     s = _ref[_i];
-    $world.simulation.addSystem(s);
+    $WORLD.simulation.addSystem(s);
   }
 
   controllerEventHandler = Ecs.create.eventHandler(function(state, event) {
@@ -215,17 +215,17 @@
     }
   });
 
-  $world.simulation.subscribeEvent("controllerInput", controllerEventHandler);
+  $WORLD.simulation.subscribeEvent("controllerInput", controllerEventHandler);
 
-  window["$state"] = $world.state;
+  window["$state"] = $WORLD.state;
 
-  window["$world"] = $world;
+  window["$WORLD"] = $WORLD;
 
-  window["$simulation"] = $world.simulation;
+  window["$simulation"] = $WORLD.simulation;
 
   preload = function() {
     var game;
-    game = $world.game;
+    game = $WORLD.game;
     game.load.tilemap('desert', 'assets/maps/burd.json', null, Phaser.Tilemap.TILED_JSON);
     game.load.tileset('tiles', 'assets/maps/ground_1x1.png', 32, 32);
     game.load.spritesheet('trees', 'assets/maps/walls_1x2.png', 32, 64);
@@ -234,12 +234,12 @@
 
   create = function() {
     var arrowKeysController, game, joystickController, joystickId, keyboardId, playerSprite, spriteKey, wasdController;
-    game = $world.game;
+    game = $WORLD.game;
     spriteKey = "player1";
     keyboardId = "keybd1";
     joystickId = "joy1";
-    $world.entity = "e1";
-    Ecs.add.components($world.state, $world.entity, Ecs.create.components({
+    $WORLD.player_eid = "e1";
+    Ecs.add.components($WORLD.simulation.state, $WORLD.player_eid, Ecs.create.components({
       controller: {
         up: false,
         down: false,
@@ -271,9 +271,9 @@
         name: "stand_down"
       }
     }));
-    if ($world.touchEnabled()) {
+    if ($WORLD.touchEnabled()) {
       joystickController = JoystickController.create(game.input, "joystickLeft");
-      $world.controllerHookups.push([$world.entity, joystickController]);
+      $WORLD.controllerHookups.push([$WORLD.player_eid, joystickController]);
     } else {
       arrowKeysController = KeyboardController.create(game.input.keyboard, {
         up: {
@@ -289,7 +289,7 @@
           hold: "RIGHT"
         }
       });
-      $world.controllerHookups.push([$world.entity, arrowKeysController]);
+      $WORLD.controllerHookups.push([$WORLD.player_eid, arrowKeysController]);
       wasdController = KeyboardController.create(game.input.keyboard, {
         up: {
           hold: "W"
@@ -304,15 +304,15 @@
           hold: "D"
         }
       });
-      $world.controllerHookups.push([$world.entity, wasdController]);
+      $WORLD.controllerHookups.push([$WORLD.player_eid, wasdController]);
     }
     createGroundLayer(game);
-    $world.group = game.add.group();
-    playerSprite = createPlayerSprite(game, $world.group);
-    $world.spriteTable[spriteKey] = playerSprite;
-    $world.spriteOrderingCache[spriteKey] = playerSprite.y;
-    createTreeSprites(game, $world.group);
-    return $world.myText = createHud(game);
+    $WORLD.group = game.add.group();
+    playerSprite = createPlayerSprite(game, $WORLD.group);
+    $WORLD.spriteTable[spriteKey] = playerSprite;
+    $WORLD.spriteOrderingCache[spriteKey] = playerSprite.y;
+    createTreeSprites(game, $WORLD.group);
+    return $WORLD.myText = createHud(game);
   };
 
   generateInputEvents = function(controllerHookups) {
@@ -328,7 +328,7 @@
           v = controlChanges[k];
           _results.push({
             type: "controllerInput",
-            eid: $world.entity,
+            eid: $WORLD.player_eid,
             action: k,
             value: v
           });
@@ -342,15 +342,15 @@
 
   update = function() {
     var e, events, _j, _len1;
-    events = generateInputEvents($world.controllerHookups);
+    events = generateInputEvents($WORLD.controllerHookups);
     for (_j = 0, _len1 = events.length; _j < _len1; _j++) {
       e = events[_j];
-      $world.simulation.processEvent(e);
+      $WORLD.simulation.processEvent(e);
     }
-    return $world.simulation.update();
+    return $WORLD.simulation.update();
   };
 
-  $world.game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', {
+  $WORLD.game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', {
     preload: preload,
     create: create,
     update: update
