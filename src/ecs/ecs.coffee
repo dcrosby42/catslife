@@ -1,6 +1,48 @@
 
 Ecs = {}
 
+class System
+  constructor: (@config) ->
+    @updateFn = @config.update
+    @searchTypes = @config.search
+
+  run: (context) ->
+    Ecs.for.components context.state, @searchTypes, (comps...) =>
+      args = comps.slice(0)
+      args.unshift(context)
+      @updateFn.apply @, args
+
+class EventHandler
+  constructor: (@fn) ->
+  handle: (state,event) ->
+    @fn state, event
+
+class Simulation
+  constructor: (@world, @state) ->
+    @systems = []
+    @eventHandlers = {}
+    @context = {
+      world: @world
+      state: @state
+    }
+
+  subscribeEvent: (type, handler) ->
+    @eventHandlers[type] = handler
+
+  processEvent: (event) ->
+    if handler = @eventHandlers[event.type]
+      handler.handle @state, event
+    else
+
+  addSystem: (system) ->
+    @systems.push system
+
+  update: ->
+    for system in @systems
+      system.run @context
+
+  systems: ->
+    return (s for s in @systems)
 
 #
 # Ecs.util
@@ -27,6 +69,9 @@ Ecs.create = {}
 Ecs.create.state = (-> {comps:{}})
 Ecs.create.component = (type, obj) -> Ecs.util.merge(obj, {type: type})
 Ecs.create.components = (table) -> Ecs.create.component type,data for type,data of table
+Ecs.create.eventHandler = (fn) -> new EventHandler(fn)
+Ecs.create.system = (opts) -> new System(opts)
+Ecs.create.simulation = (world,state) -> new Simulation(world,state)
 
 #
 # Ecs.add

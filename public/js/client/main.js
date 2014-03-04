@@ -1,246 +1,157 @@
 (function() {
-  var JoystickController, KeyboardController, Simulation, appendDebugPanel, create, createGroundLayer, createHud, createPlayerSprite, createTreeSprites, debug, game, generateInputEvents, initTouchJoystick, local, preload, simulation, state, update;
+  var $world, ReadSpritePosition, SortSprites, UpdateAnimationAction, UpdateDebugHud, UpdateMoveControl, UpdateVelocity, WriteSpriteAnimation, WriteSpritePosition, WriteSpriteVelocity, controllerEventHandler, create, createGroundLayer, createHud, createPlayerSprite, createTreeSprites, debug, generateInputEvents, preload, s, update, _i, _len, _ref,
+    __slice = [].slice;
 
-  appendDebugPanel = function() {
-    return $('body').append("<div id='debug-panel'><pre id='debug-pre'></pre></div>");
+  debug = function() {
+    var s;
+    s = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+    return console.log.apply(console, s);
   };
 
-  appendDebugPanel();
-
-  debug = function(str) {
-    return $('#debug-pre').append("" + str + "\n");
-  };
-
-  KeyboardController = (function() {
-    function KeyboardController(keyboard, mappings) {
-      this.keyboard = keyboard;
-      this.mappings = mappings;
-      this.current = {
-        up: false,
-        down: false,
-        left: false,
-        right: false
-      };
-      this.previous = {};
-      this._addKeyCaptures();
-      this.update();
-    }
-
-    KeyboardController.prototype.update = function() {
-      var conf, diff, sym, _ref;
-      this.current = {};
-      diff = {};
-      _ref = this.mappings;
-      for (sym in _ref) {
-        conf = _ref[sym];
-        this._updateSym(this.keyboard, this.current, this.previous, diff, sym, conf);
-      }
-      this.previous = this.current;
-      return diff;
-    };
-
-    KeyboardController.prototype._updateSym = function(keyboard, current, previous, diff, sym, conf) {
-      var code, val;
-      if (conf.hold) {
-        code = Phaser.Keyboard[conf.hold];
-        val = keyboard.isDown(code);
-        current[sym] = val;
-        if (val !== previous[sym]) {
-          debug("keybd controller: adding diff " + sym + ": " + val);
-          return diff[sym] = val;
-        }
-      }
-    };
-
-    KeyboardController.prototype._addKeyCaptures = function() {
-      var code, conf, sym, _ref, _results;
-      _ref = this.mappings;
-      _results = [];
-      for (sym in _ref) {
-        conf = _ref[sym];
-        if (conf.hold) {
-          code = Phaser.Keyboard[conf.hold];
-          if (typeof code !== 'undefined') {
-            _results.push(this.keyboard.addKeyCapture(code));
-          } else {
-            _results.push(void 0);
-          }
-        } else {
-          _results.push(void 0);
-        }
-      }
-      return _results;
-    };
-
-    return KeyboardController;
-
-  })();
-
-  JoystickController = (function() {
-    function JoystickController(input, joystickName) {
-      this.input = input;
-      this.joystickName = joystickName;
-      this.current = {};
-      this.previous = {};
-      this.thresh = 0.1;
-    }
-
-    JoystickController.prototype.update = function() {
-      var info, nx, ny;
-      info = this.input[this.joystickName];
-      if (info) {
-        nx = this.input[this.joystickName].normalizedX;
-        ny = this.input[this.joystickName].normalizedY;
+  UpdateMoveControl = Ecs.create.system({
+    name: "update-move-control",
+    search: ['controller', 'moveControl'],
+    update: function(ctx, controller, moveControl) {
+      if (controller.up) {
+        moveControl.y = -1;
+      } else if (controller.down) {
+        moveControl.y = 1;
       } else {
-        nx = 0;
-        ny = 0;
+        moveControl.y = 0;
       }
-      if (nx === this.old_nx && ny === this.old_ny) {
-        return;
+      if (controller.left) {
+        return moveControl.x = -1;
+      } else if (controller.right) {
+        return moveControl.x = 1;
+      } else {
+        return moveControl.x = 0;
       }
-      this.current = {};
-      this.diff = {};
-      this._change('right', nx > this.thresh);
-      this._change('left', nx < -this.thresh);
-      this._change('up', ny > this.thresh);
-      this._change('down', ny < -this.thresh);
-      this.previous = this.current;
-      this.old_nx = nx;
-      this.old_ny = ny;
-      return this.diff;
-    };
-
-    JoystickController.prototype._change = function(key, val) {
-      this.current[key] = val;
-      if (val !== this.previous[key]) {
-        return this.diff[key] = val;
-      }
-    };
-
-    return JoystickController;
-
-  })();
-
-  Simulation = (function() {
-    function Simulation(state) {
-      this.state = state;
     }
+  });
 
-    Simulation.prototype.processEvent = function(event) {
-      var controller;
-      if (event.type === "controllerInput") {
-        if (controller = Ecs.get.component(state, event.eid, "controller")) {
-          return controller[event.action] = event.value;
+  ReadSpritePosition = Ecs.create.system({
+    name: "read-sprite-position",
+    search: ['sprite', 'position'],
+    update: function(ctx, sprite, position) {
+      var phaserSprite;
+      phaserSprite = ctx.world.spriteTable[sprite.key];
+      position.x = phaserSprite.x;
+      return position.y = phaserSprite.y;
+    }
+  });
+
+  UpdateVelocity = Ecs.create.system({
+    name: "update-velocity",
+    search: ['moveControl', 'velocity'],
+    update: function(ctx, moveControl, velocity) {
+      velocity.y = moveControl.y * 200;
+      return velocity.x = moveControl.x * 200;
+    }
+  });
+
+  UpdateAnimationAction = Ecs.create.system({
+    name: "update-animation-action",
+    search: ['action', 'animation', 'velocity'],
+    update: function(ctx, action, animation, velocity) {
+      var move;
+      move = 'idle';
+      if (velocity.y < 0) {
+        move = 'up';
+      }
+      if (velocity.y > 0) {
+        move = 'down';
+      }
+      if (Math.abs(velocity.x) >= Math.abs(velocity.y)) {
+        if (velocity.x > 0) {
+          move = 'right';
+        }
+        if (velocity.x < 0) {
+          move = 'left';
         }
       }
-    };
+      if (move === 'idle') {
+        action.action = "stand";
+      } else {
+        action.action = "walk";
+        action.direction = move;
+      }
+      return animation.name = "" + action.action + "_" + action.direction;
+    }
+  });
 
-    Simulation.prototype.update = function(world) {
-      Ecs["for"].components(this.state, ['controller', 'moveControl'], function(controller, moveControl) {
-        if (controller.up) {
-          moveControl.y = -1;
-        } else if (controller.down) {
-          moveControl.y = 1;
-        } else {
-          moveControl.y = 0;
-        }
-        if (controller.left) {
-          return moveControl.x = -1;
-        } else if (controller.right) {
-          return moveControl.x = 1;
-        } else {
-          return moveControl.x = 0;
-        }
-      });
-      Ecs["for"].components(this.state, ['sprite', 'position'], function(sprite, position) {
-        var phaserSprite;
-        phaserSprite = world.spriteTable[sprite.key];
-        position.x = phaserSprite.x;
-        return position.y = phaserSprite.y;
-      });
-      Ecs["for"].components(this.state, ['moveControl', 'velocity'], function(moveControl, velocity) {
-        velocity.y = moveControl.y * 200;
-        return velocity.x = moveControl.x * 200;
-      });
-      Ecs["for"].components(this.state, ['action', 'animation', 'velocity'], function(action, animation, velocity) {
-        var move;
-        move = 'idle';
-        if (velocity.y < 0) {
-          move = 'up';
-        }
-        if (velocity.y > 0) {
-          move = 'down';
-        }
-        if (Math.abs(velocity.x) >= Math.abs(velocity.y)) {
-          if (velocity.x > 0) {
-            move = 'right';
-          }
-          if (velocity.x < 0) {
-            move = 'left';
-          }
-        }
-        if (move === 'idle') {
-          action.action = "stand";
-        } else {
-          action.action = "walk";
-          action.direction = move;
-        }
-        return animation.name = "" + action.action + "_" + action.direction;
-      });
-      Ecs["for"].components(this.state, ['sprite', 'position'], function(sprite, position) {
-        var phaserSprite;
-        phaserSprite = world.spriteTable[sprite.key];
-        phaserSprite.x = position.x;
-        return phaserSprite.y = position.y;
-      });
-      Ecs["for"].components(this.state, ['sprite', 'velocity'], function(sprite, velocity) {
-        var phaserSprite;
-        phaserSprite = world.spriteTable[sprite.key];
-        phaserSprite.body.velocity.x = velocity.x;
-        return phaserSprite.body.velocity.y = velocity.y;
-      });
-      Ecs["for"].components(this.state, ['sprite', 'animation'], function(sprite, animation) {
-        var phaserSprite;
-        phaserSprite = world.spriteTable[sprite.key];
-        return phaserSprite.animations.play(animation.name);
-      });
-      Ecs["for"].components(this.state, ['sprite', 'groupLayered'], function(sprite, groupLayered) {
-        var oldY, phaserSprite;
-        phaserSprite = world.spriteTable[sprite.key];
-        oldY = world.spriteOrderingCache[sprite.key];
-        if (phaserSprite.y !== local.oldY) {
-          world.group.sort();
-          return world.spriteOrderingCache[sprite.key] = phaserSprite.y;
-        }
-      });
-      return Ecs["for"].components(this.state, ['debugHud', 'sprite', 'position'], function(debugHud, sprite, position) {
-        var phaserSprite;
-        phaserSprite = world.spriteTable[sprite.key];
-        return local.myText.content = "sprite.x: " + (phaserSprite.x.toFixed()) + ", sprite.y: " + (phaserSprite.y.toFixed()) + "\npos.x: " + (position.x.toFixed()) + ", pos.y: " + (position.y.toFixed());
-      });
-    };
+  WriteSpritePosition = Ecs.create.system({
+    name: "write-sprite-position",
+    search: ['sprite', 'position'],
+    update: function(ctx, sprite, position) {
+      var phaserSprite;
+      phaserSprite = ctx.world.spriteTable[sprite.key];
+      phaserSprite.x = position.x;
+      return phaserSprite.y = position.y;
+    }
+  });
 
-    return Simulation;
+  WriteSpriteVelocity = Ecs.create.system({
+    name: "write-sprite-velocity",
+    search: ['sprite', 'velocity'],
+    update: function(ctx, sprite, velocity) {
+      var phaserSprite;
+      phaserSprite = ctx.world.spriteTable[sprite.key];
+      phaserSprite.body.velocity.x = velocity.x;
+      return phaserSprite.body.velocity.y = velocity.y;
+    }
+  });
 
-  })();
+  WriteSpriteAnimation = Ecs.create.system({
+    name: "write-sprite-animation",
+    search: ['sprite', 'animation'],
+    update: function(ctx, sprite, animation) {
+      var phaserSprite;
+      phaserSprite = ctx.world.spriteTable[sprite.key];
+      return phaserSprite.animations.play(animation.name);
+    }
+  });
 
-  local = {};
+  SortSprites = Ecs.create.system({
+    name: "sort-sprites",
+    search: ['sprite', 'groupLayered'],
+    update: function(ctx, sprite, groupLayered) {
+      var oldY, phaserSprite;
+      phaserSprite = ctx.world.spriteTable[sprite.key];
+      oldY = ctx.world.spriteOrderingCache[sprite.key];
+      if (phaserSprite.y !== ctx.world.oldY) {
+        ctx.world.group.sort();
+        return ctx.world.spriteOrderingCache[sprite.key] = phaserSprite.y;
+      }
+    }
+  });
 
-  local.spriteTable = {};
+  UpdateDebugHud = Ecs.create.system({
+    name: "update-debug-hud",
+    search: ['debugHud', 'sprite', 'position'],
+    update: function(ctx, debugHud, sprite, position) {
+      var phaserSprite;
+      phaserSprite = ctx.world.spriteTable[sprite.key];
+      return ctx.world.myText.content = "sprite.x: " + (phaserSprite.x.toFixed()) + ", sprite.y: " + (phaserSprite.y.toFixed()) + "\npos.x: " + (position.x.toFixed()) + ", pos.y: " + (position.y.toFixed());
+    }
+  });
 
-  local.spriteOrderingCache = {};
+  $world = {};
 
-  local.group = null;
+  $world.spriteTable = {};
 
-  local.oldY = 0;
+  $world.spriteOrderingCache = {};
 
-  local.controllerHookups = [];
+  $world.group = null;
 
-  local.touchEnabled = function() {
+  $world.oldY = 0;
+
+  $world.controllerHookups = [];
+
+  $world.touchEnabled = function() {
     return Modernizr.touch;
   };
 
-  local.myText = null;
+  $world.myText = null;
 
   createPlayerSprite = function(game, group) {
     var fr, playerSprite;
@@ -267,28 +178,6 @@
     return layer = game.add.tilemapLayer(0, 0, 800, 600, tileset, map, 0);
   };
 
-  initTouchJoystick = function(input, inputProperty) {
-    GameController.init({
-      left: {
-        type: 'joystick',
-        joystick: {
-          touchStart: (function() {}),
-          touchMove: function(joystick_details) {
-            return input[inputProperty] = joystick_details;
-          },
-          touchEnd: function() {
-            return input[inputProperty] = null;
-          }
-        }
-      },
-      right: {
-        type: 'none'
-      }
-    });
-    $('canvas').last().css('z-index', 20);
-    return $('canvas').last().offset($('canvas').first().offset());
-  };
-
   createTreeSprites = function(game, group) {
     var i, x, y, _i, _results;
     _results = [];
@@ -309,17 +198,34 @@
     return text;
   };
 
-  state = Ecs.create.state();
+  $world.state = Ecs.create.state();
 
-  simulation = new Simulation(state);
+  $world.simulation = Ecs.create.simulation($world, $world.state);
 
-  window["$state"] = state;
+  _ref = [ReadSpritePosition, UpdateMoveControl, UpdateVelocity, UpdateAnimationAction, WriteSpritePosition, WriteSpriteVelocity, WriteSpriteAnimation, SortSprites, UpdateDebugHud];
+  for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+    s = _ref[_i];
+    $world.simulation.addSystem(s);
+  }
 
-  window["$world"] = local;
+  controllerEventHandler = Ecs.create.eventHandler(function(state, event) {
+    var controller;
+    if (controller = Ecs.get.component(state, event.eid, "controller")) {
+      return controller[event.action] = event.value;
+    }
+  });
 
-  window["$simulation"] = simulation;
+  $world.simulation.subscribeEvent("controllerInput", controllerEventHandler);
+
+  window["$state"] = $world.state;
+
+  window["$world"] = $world;
+
+  window["$simulation"] = $world.simulation;
 
   preload = function() {
+    var game;
+    game = $world.game;
     game.load.tilemap('desert', 'assets/maps/burd.json', null, Phaser.Tilemap.TILED_JSON);
     game.load.tileset('tiles', 'assets/maps/ground_1x1.png', 32, 32);
     game.load.spritesheet('trees', 'assets/maps/walls_1x2.png', 32, 64);
@@ -327,12 +233,13 @@
   };
 
   create = function() {
-    var arrowKeysController, joystickController, joystickId, keyboardId, playerSprite, spriteKey, wasdController;
+    var arrowKeysController, game, joystickController, joystickId, keyboardId, playerSprite, spriteKey, wasdController;
+    game = $world.game;
     spriteKey = "player1";
     keyboardId = "keybd1";
     joystickId = "joy1";
-    local.entity = "e1";
-    Ecs.add.components(state, local.entity, Ecs.create.components({
+    $world.entity = "e1";
+    Ecs.add.components($world.state, $world.entity, Ecs.create.components({
       controller: {
         up: false,
         down: false,
@@ -364,12 +271,11 @@
         name: "stand_down"
       }
     }));
-    if (local.touchEnabled()) {
-      initTouchJoystick(game.input, 'joystickLeft');
-      joystickController = new JoystickController(game.input, "joystickLeft");
-      local.controllerHookups.push([local.entity, joystickController]);
+    if ($world.touchEnabled()) {
+      joystickController = JoystickController.create(game.input, "joystickLeft");
+      $world.controllerHookups.push([$world.entity, joystickController]);
     } else {
-      arrowKeysController = new KeyboardController(game.input.keyboard, {
+      arrowKeysController = KeyboardController.create(game.input.keyboard, {
         up: {
           hold: "UP"
         },
@@ -383,8 +289,8 @@
           hold: "RIGHT"
         }
       });
-      local.controllerHookups.push([local.entity, arrowKeysController]);
-      wasdController = new KeyboardController(game.input.keyboard, {
+      $world.controllerHookups.push([$world.entity, arrowKeysController]);
+      wasdController = KeyboardController.create(game.input.keyboard, {
         up: {
           hold: "W"
         },
@@ -398,22 +304,22 @@
           hold: "D"
         }
       });
-      local.controllerHookups.push([local.entity, wasdController]);
+      $world.controllerHookups.push([$world.entity, wasdController]);
     }
     createGroundLayer(game);
-    local.group = game.add.group();
-    playerSprite = createPlayerSprite(game, local.group);
-    local.spriteTable[spriteKey] = playerSprite;
-    local.spriteOrderingCache[spriteKey] = playerSprite.y;
-    createTreeSprites(game, local.group);
-    return local.myText = createHud(game);
+    $world.group = game.add.group();
+    playerSprite = createPlayerSprite(game, $world.group);
+    $world.spriteTable[spriteKey] = playerSprite;
+    $world.spriteOrderingCache[spriteKey] = playerSprite.y;
+    createTreeSprites(game, $world.group);
+    return $world.myText = createHud(game);
   };
 
   generateInputEvents = function(controllerHookups) {
-    var controlChanges, controlInputEvents, controller, eid, events, k, v, _i, _len, _ref;
+    var controlChanges, controlInputEvents, controller, eid, events, k, v, _j, _len1, _ref1;
     events = [];
-    for (_i = 0, _len = controllerHookups.length; _i < _len; _i++) {
-      _ref = controllerHookups[_i], eid = _ref[0], controller = _ref[1];
+    for (_j = 0, _len1 = controllerHookups.length; _j < _len1; _j++) {
+      _ref1 = controllerHookups[_j], eid = _ref1[0], controller = _ref1[1];
       controlChanges = controller.update();
       controlInputEvents = (function() {
         var _results;
@@ -422,7 +328,7 @@
           v = controlChanges[k];
           _results.push({
             type: "controllerInput",
-            eid: local.entity,
+            eid: $world.entity,
             action: k,
             value: v
           });
@@ -435,16 +341,16 @@
   };
 
   update = function() {
-    var e, events, _i, _len;
-    events = generateInputEvents(local.controllerHookups);
-    for (_i = 0, _len = events.length; _i < _len; _i++) {
-      e = events[_i];
-      simulation.processEvent(e);
+    var e, events, _j, _len1;
+    events = generateInputEvents($world.controllerHookups);
+    for (_j = 0, _len1 = events.length; _j < _len1; _j++) {
+      e = events[_j];
+      $world.simulation.processEvent(e);
     }
-    return simulation.update(local);
+    return $world.simulation.update();
   };
 
-  game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', {
+  $world.game = new Phaser.Game(800, 600, Phaser.CANVAS, 'game-div', {
     preload: preload,
     create: create,
     update: update

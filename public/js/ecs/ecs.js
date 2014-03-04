@@ -1,8 +1,102 @@
 (function() {
-  var Ecs,
+  var Ecs, EventHandler, Simulation, System,
     __slice = [].slice;
 
   Ecs = {};
+
+  System = (function() {
+    function System(config) {
+      this.config = config;
+      this.updateFn = this.config.update;
+      this.searchTypes = this.config.search;
+    }
+
+    System.prototype.run = function(context) {
+      return Ecs["for"].components(context.state, this.searchTypes, (function(_this) {
+        return function() {
+          var args, comps;
+          comps = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
+          args = comps.slice(0);
+          args.unshift(context);
+          return _this.updateFn.apply(_this, args);
+        };
+      })(this));
+    };
+
+    return System;
+
+  })();
+
+  EventHandler = (function() {
+    function EventHandler(fn) {
+      this.fn = fn;
+    }
+
+    EventHandler.prototype.handle = function(state, event) {
+      return this.fn(state, event);
+    };
+
+    return EventHandler;
+
+  })();
+
+  Simulation = (function() {
+    function Simulation(world, state) {
+      this.world = world;
+      this.state = state;
+      this.systems = [];
+      this.eventHandlers = {};
+      this.context = {
+        world: this.world,
+        state: this.state
+      };
+    }
+
+    Simulation.prototype.subscribeEvent = function(type, handler) {
+      return this.eventHandlers[type] = handler;
+    };
+
+    Simulation.prototype.processEvent = function(event) {
+      var handler;
+      if (handler = this.eventHandlers[event.type]) {
+        return handler.handle(this.state, event);
+      } else {
+
+      }
+    };
+
+    Simulation.prototype.addSystem = function(system) {
+      return this.systems.push(system);
+    };
+
+    Simulation.prototype.update = function() {
+      var system, _i, _len, _ref, _results;
+      _ref = this.systems;
+      _results = [];
+      for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+        system = _ref[_i];
+        _results.push(system.run(this.context));
+      }
+      return _results;
+    };
+
+    Simulation.prototype.systems = function() {
+      var s;
+      return (function() {
+        var _i, _len, _ref, _results;
+        _ref = this.systems;
+        _results = [];
+        for (_i = 0, _len = _ref.length; _i < _len; _i++) {
+          s = _ref[_i];
+          _results.push(s);
+        }
+        return _results;
+      }).call(this);
+    };
+
+    return Simulation;
+
+  })();
 
   Ecs.util = {};
 
@@ -62,6 +156,18 @@
       _results.push(Ecs.create.component(type, data));
     }
     return _results;
+  };
+
+  Ecs.create.eventHandler = function(fn) {
+    return new EventHandler(fn);
+  };
+
+  Ecs.create.system = function(opts) {
+    return new System(opts);
+  };
+
+  Ecs.create.simulation = function(world, state) {
+    return new Simulation(world, state);
   };
 
   Ecs.add = {};

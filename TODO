@@ -1,0 +1,18 @@
+Intermediate goals:
+  / move cat using wasd in addition to arrows
+  / reconstitute joystick controller for mobile control
+  - put a second cat on screen, use two keyboard controllers
+  - use a different sprite / anim for second cat
+    SOLVE: Entity creation
+  - Echo all controller events through web socket
+    (would allow any participant to control either cat, but is ok for now)
+  
+  OUTPUT EVENTS FROM SIMULATION?
+
+Code maint:
+
+- KeyboardController into own file
+- Simulation into own file
+
+- Organize "local" / "world" a little better
+
