@@ -7,20 +7,21 @@
   System = (function() {
     function System(config) {
       this.config = config;
-      this.updateFn = this.config.update;
-      this.searchTypes = this.config.search;
+      this.update = this.config.update.bind(this);
+      this.search = this.config.search;
+      this.context = null;
     }
 
     System.prototype.run = function(context) {
-      return Ecs["for"].components(context.state, this.searchTypes, (function(_this) {
+      this.context = context;
+      Ecs["for"].components(context.state, this.search, (function(_this) {
         return function() {
-          var args, comps;
+          var comps;
           comps = 1 <= arguments.length ? __slice.call(arguments, 0) : [];
-          args = comps.slice(0);
-          args.unshift(context);
-          return _this.updateFn.apply(_this, args);
+          return _this.update.apply(_this, comps);
         };
       })(this));
+      return this.context = null;
     };
 
     return System;

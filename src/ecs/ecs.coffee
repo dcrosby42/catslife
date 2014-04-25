@@ -3,15 +3,16 @@ Ecs = {}
 
 class System
   constructor: (@config) ->
-    @updateFn = @config.update
-    @searchTypes = @config.search
+    @update = @config.update.bind(@)
+    @search = @config.search
+    @context = null
 
   run: (context) ->
-    Ecs.for.components context.state, @searchTypes, (comps...) =>
-      args = comps.slice(0)
-      args.unshift(context)
-      @updateFn.apply @, args
-
+    @context = context
+    Ecs.for.components context.state, @search, (comps...) =>
+      @update.apply @, comps
+    @context = null
+  
 class EventHandler
   constructor: (@fn) ->
   handle: (state,event) ->

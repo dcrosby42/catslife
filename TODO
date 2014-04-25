@@ -3,6 +3,8 @@ Intermediate goals:
   / reconstitute joystick controller for mobile control
   - put a second cat on screen, use two keyboard controllers
   - use a different sprite / anim for second cat
+  - when SPACE is pushed, generate a sprite on screen left that walks across to the right
+      - new sprite
     SOLVE: Entity creation
   - Echo all controller events through web socket
     (would allow any participant to control either cat, but is ok for now)
@@ -16,3 +18,14 @@ Code maint:
 
 - Organize "local" / "world" a little better
 
+
+
+sprite:
+  key: '___'
+  spec: "thomas"
+
+
+c = Ecs.create.component(h)
+Ecs.add.component(c)
+Ecs.remove.component
+Ecs.remove.entity

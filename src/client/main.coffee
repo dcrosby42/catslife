@@ -12,7 +12,7 @@ debug = (s...) -> console.log(s...)
 UpdateMoveControl = Ecs.create.system
   name: "update-move-control"
   search: ['controller','moveControl']
-  update: (ctx, controller, moveControl) ->
+  update: (controller, moveControl) ->
     if controller.up
       moveControl.y = -1
     else if controller.down
@@ -30,22 +30,22 @@ UpdateMoveControl = Ecs.create.system
 ReadSpritePosition = Ecs.create.system
   name: "read-sprite-position"
   search: ['sprite', 'position']
-  update: (ctx, sprite, position) ->
-    phaserSprite = ctx.world.spriteTable[sprite.key]
+  update: (sprite, position) ->
+    phaserSprite = @context.world.spriteTable[sprite.key]
     position.x = phaserSprite.x
     position.y = phaserSprite.y
 
 UpdateVelocity = Ecs.create.system
   name: "update-velocity"
   search: [ 'moveControl', 'velocity' ]
-  update: (ctx, moveControl, velocity) ->
+  update: (moveControl, velocity) ->
     velocity.y = moveControl.y * 200
     velocity.x = moveControl.x * 200
 
 UpdateAnimationAction = Ecs.create.system
   name: "update-animation-action"
   search: [ 'action', 'animation','velocity'],
-  update: (ctx, action, animation, velocity) ->
+  update: (action, animation, velocity) ->
     move = 'idle'
     if velocity.y < 0 then move = 'up'
     if velocity.y > 0 then move = 'down'
@@ -64,45 +64,45 @@ UpdateAnimationAction = Ecs.create.system
 WriteSpritePosition = Ecs.create.system
   name: "write-sprite-position"
   search: ['sprite','position']
-  update: (ctx, sprite, position) ->
-    phaserSprite = ctx.world.spriteTable[sprite.key]
+  update: (sprite, position) ->
+    phaserSprite = @context.world.spriteTable[sprite.key]
     phaserSprite.x = position.x
     phaserSprite.y = position.y
 
 WriteSpriteVelocity = Ecs.create.system
   name: "write-sprite-velocity"
   search: ['sprite','velocity']
-  update: (ctx, sprite, velocity) ->
-    phaserSprite = ctx.world.spriteTable[sprite.key]
+  update: (sprite, velocity) ->
+    phaserSprite = @context.world.spriteTable[sprite.key]
     phaserSprite.body.velocity.x = velocity.x
     phaserSprite.body.velocity.y = velocity.y
 
 WriteSpriteAnimation = Ecs.create.system
   name: "write-sprite-animation"
   search: ['sprite','animation']
-  update: (ctx, sprite, animation) ->
-    phaserSprite = ctx.world.spriteTable[sprite.key]
+  update: (sprite, animation) ->
+    phaserSprite = @context.world.spriteTable[sprite.key]
     phaserSprite.animations.play animation.name
 
 SortSprites = Ecs.create.system
   name: "sort-sprites"
   search: ['sprite', 'groupLayered']
-  update: (ctx, sprite, groupLayered) ->
-    phaserSprite = ctx.world.spriteTable[sprite.key]
-    oldY = ctx.world.spriteOrderingCache[sprite.key]
-    if phaserSprite.y != ctx.world.oldY
+  update: (sprite, groupLayered) ->
+    phaserSprite = @context.world.spriteTable[sprite.key]
+    oldY = @context.world.spriteOrderingCache[sprite.key]
+    if phaserSprite.y != @context.world.oldY
       #  Group.sort() is an expensive operation
       #  You really want to minimise how often it is called as much as possible.
       #  So this little check helps at least, but if you can do it even less than this.
-      ctx.world.group.sort()
-      ctx.world.spriteOrderingCache[sprite.key] = phaserSprite.y
+      @context.world.group.sort()
+      @context.world.spriteOrderingCache[sprite.key] = phaserSprite.y
 
 UpdateDebugHud = Ecs.create.system
   name: "update-debug-hud"
   search: ['debugHud','sprite','position']
-  update: (ctx, debugHud, sprite, position) ->
-    phaserSprite = ctx.world.spriteTable[sprite.key]
-    ctx.world.myText.content = "sprite.x: #{phaserSprite.x.toFixed()}, sprite.y: #{phaserSprite.y.toFixed()}\npos.x: #{position.x.toFixed()}, pos.y: #{position.y.toFixed()}"
+  update: (debugHud, sprite, position) ->
+    phaserSprite = @context.world.spriteTable[sprite.key]
+    @context.world.myText.content = "sprite.x: #{phaserSprite.x.toFixed()}, sprite.y: #{phaserSprite.y.toFixed()}\npos.x: #{position.x.toFixed()}, pos.y: #{position.y.toFixed()}"
 
 
 
@@ -116,11 +116,9 @@ $WORLD.controllerHookups = []
 $WORLD.touchEnabled = -> Modernizr.touch
 $WORLD.myText = null
 
-createPlayerSprite = (game,group) ->
-  #  The player:
+createThomasSprite = (game) ->
   fr = 7
-  playerSprite = group.create(0, 0, 'cat')
-  # playerSprite = game.add.sprite(0, 0, 'cat')
+  playerSprite = game.add.sprite(0, 0, 'cat')
   playerSprite.animations.add('stand_down', [0], fr, true)
   playerSprite.animations.add('walk_down', [1,2], fr, true)
   playerSprite.animations.add('stand_up', [3], fr, true)
@@ -132,7 +130,6 @@ createPlayerSprite = (game,group) ->
   playerSprite.animations.play('stand_up')
   playerSprite.scale.x = 0.5
   playerSprite.scale.y = 0.5
-
   playerSprite
 
 createGroundLayer = (game) ->
@@ -157,9 +154,11 @@ $WORLD.simulation = Ecs.create.simulation($WORLD, $WORLD.state)
 
 for s in [
   ReadSpritePosition
+
   UpdateMoveControl
   UpdateVelocity
   UpdateAnimationAction
+
   WriteSpritePosition
   WriteSpriteVelocity
   WriteSpriteAnimation
@@ -200,7 +199,7 @@ create = ->
     moveControl:  x: 0, y: 0
     velocity:  x: 0, y: 0
     position:  x: 0, y: 0
-    sprite:    key: spriteKey
+    sprite:    spec: 'thomas', key: '#'
     action:  action: "stand", direction: "down"
     animation:  name: "stand_down"
   )
@@ -232,7 +231,9 @@ create = ->
   #  This group will hold the main player + all the tree sprites to depth sort against
   $WORLD.group = game.add.group()
 
-  playerSprite = createPlayerSprite(game, $WORLD.group)
+  playerSprite = createThomasSprite(game)
+  $WORLD.group.add(playerSprite)
+
   $WORLD.spriteTable[spriteKey] = playerSprite
   $WORLD.spriteOrderingCache[spriteKey] = playerSprite.y
 
@@ -261,9 +262,10 @@ generateInputEvents = (controllerHookups) ->
 
 
 update = ->
-  events = generateInputEvents($WORLD.controllerHookups)
+  inputEvents = generateInputEvents($WORLD.controllerHookups)
 
-  $WORLD.simulation.processEvent(e) for e in events
+  $WORLD.simulation.processEvent(e) for e in inputEvents
+
   $WORLD.simulation.update()
 
 #

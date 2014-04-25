@@ -1,5 +1,5 @@
 (function() {
-  var $WORLD, ReadSpritePosition, SortSprites, UpdateAnimationAction, UpdateDebugHud, UpdateMoveControl, UpdateVelocity, WriteSpriteAnimation, WriteSpritePosition, WriteSpriteVelocity, controllerEventHandler, create, createGroundLayer, createHud, createPlayerSprite, createTreeSprites, debug, generateInputEvents, preload, s, update, _i, _len, _ref,
+  var $WORLD, ReadSpritePosition, SortSprites, UpdateAnimationAction, UpdateDebugHud, UpdateMoveControl, UpdateVelocity, WriteSpriteAnimation, WriteSpritePosition, WriteSpriteVelocity, controllerEventHandler, create, createGroundLayer, createHud, createThomasSprite, createTreeSprites, debug, generateInputEvents, preload, s, update, _i, _len, _ref,
     __slice = [].slice;
 
   debug = function() {
@@ -11,7 +11,7 @@
   UpdateMoveControl = Ecs.create.system({
     name: "update-move-control",
     search: ['controller', 'moveControl'],
-    update: function(ctx, controller, moveControl) {
+    update: function(controller, moveControl) {
       if (controller.up) {
         moveControl.y = -1;
       } else if (controller.down) {
@@ -32,9 +32,9 @@
   ReadSpritePosition = Ecs.create.system({
     name: "read-sprite-position",
     search: ['sprite', 'position'],
-    update: function(ctx, sprite, position) {
+    update: function(sprite, position) {
       var phaserSprite;
-      phaserSprite = ctx.world.spriteTable[sprite.key];
+      phaserSprite = this.context.world.spriteTable[sprite.key];
       position.x = phaserSprite.x;
       return position.y = phaserSprite.y;
     }
@@ -43,7 +43,7 @@
   UpdateVelocity = Ecs.create.system({
     name: "update-velocity",
     search: ['moveControl', 'velocity'],
-    update: function(ctx, moveControl, velocity) {
+    update: function(moveControl, velocity) {
       velocity.y = moveControl.y * 200;
       return velocity.x = moveControl.x * 200;
     }
@@ -52,7 +52,7 @@
   UpdateAnimationAction = Ecs.create.system({
     name: "update-animation-action",
     search: ['action', 'animation', 'velocity'],
-    update: function(ctx, action, animation, velocity) {
+    update: function(action, animation, velocity) {
       var move;
       move = 'idle';
       if (velocity.y < 0) {
@@ -82,9 +82,9 @@
   WriteSpritePosition = Ecs.create.system({
     name: "write-sprite-position",
     search: ['sprite', 'position'],
-    update: function(ctx, sprite, position) {
+    update: function(sprite, position) {
       var phaserSprite;
-      phaserSprite = ctx.world.spriteTable[sprite.key];
+      phaserSprite = this.context.world.spriteTable[sprite.key];
       phaserSprite.x = position.x;
       return phaserSprite.y = position.y;
     }
@@ -93,9 +93,9 @@
   WriteSpriteVelocity = Ecs.create.system({
     name: "write-sprite-velocity",
     search: ['sprite', 'velocity'],
-    update: function(ctx, sprite, velocity) {
+    update: function(sprite, velocity) {
       var phaserSprite;
-      phaserSprite = ctx.world.spriteTable[sprite.key];
+      phaserSprite = this.context.world.spriteTable[sprite.key];
       phaserSprite.body.velocity.x = velocity.x;
       return phaserSprite.body.velocity.y = velocity.y;
     }
@@ -104,9 +104,9 @@
   WriteSpriteAnimation = Ecs.create.system({
     name: "write-sprite-animation",
     search: ['sprite', 'animation'],
-    update: function(ctx, sprite, animation) {
+    update: function(sprite, animation) {
       var phaserSprite;
-      phaserSprite = ctx.world.spriteTable[sprite.key];
+      phaserSprite = this.context.world.spriteTable[sprite.key];
       return phaserSprite.animations.play(animation.name);
     }
   });
@@ -114,13 +114,13 @@
   SortSprites = Ecs.create.system({
     name: "sort-sprites",
     search: ['sprite', 'groupLayered'],
-    update: function(ctx, sprite, groupLayered) {
+    update: function(sprite, groupLayered) {
       var oldY, phaserSprite;
-      phaserSprite = ctx.world.spriteTable[sprite.key];
-      oldY = ctx.world.spriteOrderingCache[sprite.key];
-      if (phaserSprite.y !== ctx.world.oldY) {
-        ctx.world.group.sort();
-        return ctx.world.spriteOrderingCache[sprite.key] = phaserSprite.y;
+      phaserSprite = this.context.world.spriteTable[sprite.key];
+      oldY = this.context.world.spriteOrderingCache[sprite.key];
+      if (phaserSprite.y !== this.context.world.oldY) {
+        this.context.world.group.sort();
+        return this.context.world.spriteOrderingCache[sprite.key] = phaserSprite.y;
       }
     }
   });
@@ -128,10 +128,10 @@
   UpdateDebugHud = Ecs.create.system({
     name: "update-debug-hud",
     search: ['debugHud', 'sprite', 'position'],
-    update: function(ctx, debugHud, sprite, position) {
+    update: function(debugHud, sprite, position) {
       var phaserSprite;
-      phaserSprite = ctx.world.spriteTable[sprite.key];
-      return ctx.world.myText.content = "sprite.x: " + (phaserSprite.x.toFixed()) + ", sprite.y: " + (phaserSprite.y.toFixed()) + "\npos.x: " + (position.x.toFixed()) + ", pos.y: " + (position.y.toFixed());
+      phaserSprite = this.context.world.spriteTable[sprite.key];
+      return this.context.world.myText.content = "sprite.x: " + (phaserSprite.x.toFixed()) + ", sprite.y: " + (phaserSprite.y.toFixed()) + "\npos.x: " + (position.x.toFixed()) + ", pos.y: " + (position.y.toFixed());
     }
   });
 
@@ -153,10 +153,10 @@
 
   $WORLD.myText = null;
 
-  createPlayerSprite = function(game, group) {
+  createThomasSprite = function(game) {
     var fr, playerSprite;
     fr = 7;
-    playerSprite = group.create(0, 0, 'cat');
+    playerSprite = game.add.sprite(0, 0, 'cat');
     playerSprite.animations.add('stand_down', [0], fr, true);
     playerSprite.animations.add('walk_down', [1, 2], fr, true);
     playerSprite.animations.add('stand_up', [3], fr, true);
@@ -261,7 +261,8 @@
         y: 0
       },
       sprite: {
-        key: spriteKey
+        spec: 'thomas',
+        key: '#'
       },
       action: {
         action: "stand",
@@ -308,7 +309,8 @@
     }
     createGroundLayer(game);
     $WORLD.group = game.add.group();
-    playerSprite = createPlayerSprite(game, $WORLD.group);
+    playerSprite = createThomasSprite(game);
+    $WORLD.group.add(playerSprite);
     $WORLD.spriteTable[spriteKey] = playerSprite;
     $WORLD.spriteOrderingCache[spriteKey] = playerSprite.y;
     createTreeSprites(game, $WORLD.group);
@@ -341,10 +343,10 @@
   };
 
   update = function() {
-    var e, events, _j, _len1;
-    events = generateInputEvents($WORLD.controllerHookups);
-    for (_j = 0, _len1 = events.length; _j < _len1; _j++) {
-      e = events[_j];
+    var e, inputEvents, _j, _len1;
+    inputEvents = generateInputEvents($WORLD.controllerHookups);
+    for (_j = 0, _len1 = inputEvents.length; _j < _len1; _j++) {
+      e = inputEvents[_j];
       $WORLD.simulation.processEvent(e);
     }
     return $WORLD.simulation.update();
